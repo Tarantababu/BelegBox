@@ -1,0 +1,19 @@
+{
+  "name": "@belegbox/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@belegbox/archive": "workspace:*",
+    "@belegbox/db": "workspace:*",
+    "fastify": "^5.2.0"
+  }
+}

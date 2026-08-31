@@ -38,6 +38,40 @@ jobs:
       - name: Validate the corpus
         run: pnpm validate --offline corpus/*.xml
 
+  db:
+    name: PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: belegbox
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Row Level Security, FORCE, triggers and grants cannot be exercised
+      # against a substitute. Without this job the isolation guarantee is a
+      # claim rather than a test.
+      - name: Migrate and run the isolation suite
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/belegbox
+        run: pnpm --filter @belegbox/db exec vitest run
+
   jvm:
     name: mustang-svc
     runs-on: ubuntu-latest

@@ -38,17 +38,17 @@ roadmap does not mean its turn has come.
 | `packages/validation` | **Sprint 0.** Layered pipeline, mustang-svc client, verdict derivation |
 | `apps/cli` | **Sprint 0.** `belegbox validate` |
 | `services/mustang-svc` | **Sprint 0.** JVM sidecar. L1 XSD implemented, L2 KoSIT wiring is week 2-3 |
-| `packages/db` | **Sprint 0.** Extensions and the app role. Tables and RLS are week 2 |
 | `corpus` | **Sprint 0.** Seven hand-authored fixtures with committed snapshots |
 | `packages/ingest` | **Week 1.** Provider adapters, sender authentication, PDF/A-3 extraction, inbox addressing |
 | `apps/worker` | **Week 1.** Inbound webhook, idempotency, write-once object store |
-| `apps/api` | Week 1-2. Fastify, `/v1`, the only write path |
+| `packages/archive` | **Week 2.** RFC 6962 Merkle tree, day chain, inclusion proofs |
+| `packages/db` | **Week 2.** Schema, RLS, append-only enforcement, archive writer |
+| `apps/api` | **Week 2.** Fastify `/v1`, archive proof endpoint |
 | `apps/web` | Week 4-5. Next.js, consumes `/v1` |
 | `packages/rules-engine` | Week 3-4. YAML → AST → evaluator |
 | `packages/explain` | Week 4-5. Versioned templates, DE + TR |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
-| `packages/archive` | Week 2. WORM writer, Merkle day-chain |
 | `apps/mobile` | F3 |
 
 ## Receiving mail
@@ -68,6 +68,24 @@ Until week 2 the worker writes raw bytes to `.data/ingest/objects/` with the
 `wx` flag, so a second write of the same digest fails instead of overwriting.
 That is a deliberate rehearsal of S3 Object Lock: code that assumes it can
 re-put an object breaks in development rather than in a Compliance-mode bucket.
+
+## Database
+
+```bash
+DATABASE_URL=postgres://belegbox:belegbox@localhost:5432/belegbox \
+pnpm --filter @belegbox/db migrate
+```
+
+Tenant isolation is Row Level Security, entered only through
+`Db.withTenant(id, fn)`. It sets `app.tenant_id` **transaction-locally**, which
+is what keeps the scope from following a pooled connection to the next request
+under PgBouncer. `audit_log` and `archive_chain` are append-only by grant *and*
+by trigger.
+
+RLS binds a role that cannot step around it, so `belegbox_app` owns no tables,
+is not a superuser, and holds no `BYPASSRLS` — asserted by a test, because
+someone will eventually want to grant one of those to unblock a migration.
+Details in [packages/db/README.md](packages/db/README.md).
 
 ## Two invariants
 
@@ -90,13 +108,23 @@ record still sends real invoices. The result is stored on the document, shown in
 the UI and fed to D-008 — a silently dropped invoice is worse than a flagged
 one.
 
+And one the archive adds:
+
+**A sealed day is closed.** A document cannot be archived into a day that
+already has a chain link, and the chain only seals forward. Either would leave a
+document in the database but outside the tree that is supposed to cover it.
+
 ## What is not verified yet
 
 Scaffolded on a machine with no JDK and no Docker, so:
 
 - `services/mustang-svc` has **not been compiled or run**. The CI `jvm` job
   builds it, boots it and probes `/health`; that is the first real check.
-- `docker-compose.yml` has not been brought up.
+- `docker-compose.yml` has not been brought up. The database suite was verified
+  against a throwaway PostgreSQL 16 cluster instead, and runs in CI against a
+  service container.
+- Object storage is still the filesystem stand-in. S3 with Object Lock is week
+  3; the `wx` write is a rehearsal of it, not the thing itself.
 - Every version in `services/mustang-svc/versions.properties` reads `UNPINNED`.
   Pinning them against a resolved build is F1 week 1 and blocks storing any
   verdict (R-2).
