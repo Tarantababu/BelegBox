@@ -254,6 +254,6 @@ These are blocking, not background:
 ## 7. Open decisions
 
 1. **Primary F1 sector.** Plan assumes Handwerk primary + Gastro demo (D2). If the first three pilots are gastronomy, flip the primary — the code does not change, only which ruleset is battle-tested first.
-2. **Inbound mail provider.** Postmark (cleaner inbound parsing) vs Mailgun (larger attachment ceiling). Decide in week 1; both are behind one `IngestSource` interface.
+2. ~~**Inbound mail provider.**~~ **Decided in week 1: Postmark.** Its inbound parsing is more consistent, and the 35 MB attachment ceiling is far above any real e-invoice — the larger Mailgun ceiling buys nothing here. Both adapters are implemented behind one `IngestSource`, so the seam is proven rather than assumed and switching is one environment variable. Note that Postmark does not sign inbound webhooks: authentication is HTTP Basic credentials in the webhook URL, which must be a high-entropy secret.
 3. **Competitor teardown from §B.2** — is the rival's "Abschlags-/Schlussrechnung" a real feature or a landing page? Answer changes M-08's size in F3, nothing before it.
 4. **VAT-gap doctrine (P-4)** — net-constant is assumed here. Confirm with the Steuerberater; it is a one-line change and a template edit.
