@@ -44,8 +44,9 @@ roadmap does not mean its turn has come.
 | `packages/archive` | **Week 2.** RFC 6962 Merkle tree, day chain, inclusion proofs |
 | `packages/db` | **Week 2.** Schema, RLS, append-only enforcement, archive writer |
 | `apps/api` | **Week 2.** Fastify `/v1`, archive proof endpoint |
+| `packages/rules-engine` | **Week 3.** YAML → AST → evaluator, dry-run harness |
+| `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
 | `apps/web` | Week 4-5. Next.js, consumes `/v1` |
-| `packages/rules-engine` | Week 3-4. YAML → AST → evaluator |
 | `packages/explain` | Week 4-5. Versioned templates, DE + TR |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
@@ -87,6 +88,27 @@ is not a superuser, and holds no `BYPASSRLS` — asserted by a test, because
 someone will eventually want to grant one of those to unblock a migration.
 Details in [packages/db/README.md](packages/db/README.md).
 
+## The two content layers
+
+```bash
+pnpm validate --offline --ruleset rulesets/gastro-de.yaml corpus/gastro-beverage-7pct-01.xml
+```
+
+**L3 is code.** D-001 to D-009 need lookups, history and arithmetic a
+declarative rule cannot express, and they are the same for every tenant.
+D-007, D-008 and D-009 are not e-invoicing checks at all — duplicate invoice,
+IBAN in the wrong country, amount far outside the supplier's usual range. Those
+are invoice-fraud checks, and no competing validator runs them.
+
+**L4 is YAML**, one ruleset per sector. Sector difference is data, not code —
+`gastro-de` and `handwerk-bau-de` ship today, and adding a sector adds a file.
+
+The `compute` expressions run through a purpose-built arithmetic parser, never
+`eval` or `new Function`. Rule YAML becomes tenant-authored input in F3, at
+which point an expression string is untrusted code running on our servers. The
+grammar is numbers, four operators, parentheses and whitelisted field names —
+nothing else parses.
+
 ## Two invariants
 
 **The form verdict comes from L1 and L2 alone.** L3 and L4 cannot touch it. The
@@ -113,6 +135,16 @@ And one the archive adds:
 **A sealed day is closed.** A document cannot be archived into a day that
 already has a chain link, and the chain only seals forward. Either would leave a
 document in the database but outside the tree that is supposed to cover it.
+
+And two the rules engine adds:
+
+**A rule that cannot reach an answer abstains.** VIES being unreachable, a
+comparison against a missing amount, a supplier with no history — each produces
+a warning that says so, never a content error. A tax authority outage must not
+tell a customer their invoice is wrong.
+
+**A missing field is not zero.** `compute` refuses to resolve one, because a
+VAT gap that silently reads 0.00 looks like a harmless finding.
 
 ## What is not verified yet
 

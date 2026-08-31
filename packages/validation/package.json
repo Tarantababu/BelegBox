@@ -17,6 +17,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@belegbox/core-invoice": "workspace:*"
+    "@belegbox/core-invoice": "workspace:*",
+    "@belegbox/rules-engine": "workspace:*"
   }
 }

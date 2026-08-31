@@ -4,7 +4,18 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"],
-  "references": [{ "path": "../core-invoice" }]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../core-invoice"
+    },
+    {
+      "path": "../rules-engine"
+    }
+  ]
 }

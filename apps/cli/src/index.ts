@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
+import { loadRuleSet, type RuleSet } from "@belegbox/rules-engine";
 import { MustangClient, validateDocument } from "@belegbox/validation";
 import { formatResult } from "./format.js";
 
@@ -12,7 +13,8 @@ Usage
 
 Options
   --json            Machine-readable output.
-  --offline         Skip L1/L2. Runs detection and D-001 only, no mustang-svc.
+  --offline         Skip L1/L2. Runs detection plus L3/L4, no mustang-svc.
+  --ruleset <file>  Load an L4 ruleset (YAML) and evaluate it.
   --url <url>       mustang-svc base URL. Default: $MUSTANG_SVC_URL or
                     http://localhost:8081
 
@@ -34,6 +36,7 @@ async function main(argv: string[]): Promise<number> {
     options: {
       json: { type: "boolean", default: false },
       offline: { type: "boolean", default: false },
+      ruleset: { type: "string" },
       url: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -54,6 +57,18 @@ async function main(argv: string[]): Promise<number> {
     return 2;
   }
 
+  let ruleSet: RuleSet | undefined;
+  if (values.ruleset) {
+    try {
+      ruleSet = loadRuleSet(await readFile(values.ruleset, "utf8"));
+    } catch (err) {
+      // A broken ruleset must stop the run. Continuing without it would report
+      // a clean content verdict that simply was not checked.
+      process.stderr.write(`Cannot load ruleset ${values.ruleset}: ${(err as Error).message}\n`);
+      return 2;
+    }
+  }
+
   const client = values.url ? new MustangClient({ baseUrl: values.url }) : undefined;
   const results: unknown[] = [];
   let failed = false;
@@ -72,6 +87,7 @@ async function main(argv: string[]): Promise<number> {
       {
         ...(client ? { client } : {}),
         ...(values.offline ? { skipL1L2: true } : {}),
+        ...(ruleSet ? { ruleSet } : {}),
       },
     );
 

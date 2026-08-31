@@ -1,0 +1,98 @@
+id: gastro-de
+template: gastro-de
+version: 1
+description: >
+  Gastronomy. Since 1 January 2026 food is permanently at 7 % VAT under
+  § 12 Abs. 2 Nr. 15 UStG - in the restaurant, to take away, delivered and in
+  catering. Beverages stayed at 19 %. A mixed delivery invoiced entirely at 7 %
+  under-declares VAT, and no syntax validator notices.
+
+rules:
+  - id: gastro-beverage-rate
+    version: 1
+    severity: content_error
+    scope: incoming
+    # R-1: the permanent 7 % rule for food starts here. Applying this rule to a
+    # 2025 invoice would re-judge the archive against a law that did not apply.
+    effective_from: "2026-01-01"
+    legal_basis: "§ 12 Abs. 2 Nr. 15 UStG"
+    description: >
+      A beverage line invoiced at the reduced rate. The supplier's system is
+      almost always the cause; the buyer carries the input-tax risk.
+    when:
+      all:
+        - field: line.description
+          op: matches_lexicon
+          value: beverages_de
+        - field: line.vat_rate
+          op: equals
+          value: 7
+        - field: line.vat_category
+          op: equals
+          value: S
+        # Milk drinks over 75 % milk and tap water stay at 7 %. Without this a
+        # dairy delivery is flagged every week until the user stops reading.
+        - none:
+            - field: line.description
+              op: matches_lexicon
+              value: beverage_exceptions_de
+    then:
+      - action: compute
+        var: vat_gap
+        expr: line.net * 0.12
+      - action: flag
+        explain_key: gastro.beverage_wrong_rate
+      - action: tag
+        tag: vat-rate-review
+
+  - id: gastro-food-rate-too-high
+    version: 1
+    severity: warning
+    scope: incoming
+    effective_from: "2026-01-01"
+    legal_basis: "§ 12 Abs. 2 Nr. 15 UStG"
+    description: >
+      The mirror case. Food at 19 % costs the buyer nothing in input tax, but it
+      is still a wrong invoice, and it usually means the supplier has not
+      adjusted to the 2026 change at all.
+    when:
+      all:
+        - field: line.description
+          op: matches_lexicon
+          value: food_de
+        - field: line.vat_rate
+          op: equals
+          value: 19
+        - field: line.vat_category
+          op: equals
+          value: S
+        - none:
+            - field: line.description
+              op: matches_lexicon
+              value: beverages_de
+    then:
+      - action: flag
+        explain_key: gastro.food_wrong_rate
+      - action: tag
+        tag: vat-rate-review
+
+lexicons:
+  food_de:
+    - speisen
+    - lebensmittel
+    - fleisch
+    - rindfleisch
+    - haehnchen
+    - doener
+    - gemuese
+    - salat
+    - kaese
+    - joghurt
+    - brot
+    - broetchen
+    - fladenbrot
+    - reis
+    - kartoffeln
+    - zwiebeln
+    - tomaten
+    - gewuerze

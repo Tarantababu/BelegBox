@@ -27,14 +27,16 @@ exports[`corpus snapshots > every fixture produces a stable offline result 1`] =
     },
   },
   "missing-exemption-reason-ae-01.xml": {
-    "codes": [],
+    "codes": [
+      "D-002",
+    ],
     "format": "xrechnung_ubl",
     "legalClass": "einvoice",
     "profile": "XRechnung 3.0",
     "status": "pending",
     "syntax": "ubl",
     "verdict": {
-      "content": "pass",
+      "content": "fail",
       "form": "unknown",
     },
   },

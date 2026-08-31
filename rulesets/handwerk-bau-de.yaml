@@ -1,0 +1,94 @@
+id: handwerk-bau-de
+template: handwerk-bau-de
+version: 1
+description: >
+  Construction and trades. Three things go wrong here that a syntax validator
+  passes: reverse charge declared without its statutory wording, a public
+  customer without a Leitweg-ID, and a final invoice that does not deduct the
+  interim payments already made.
+
+rules:
+  - id: handwerk-reverse-charge-notice
+    version: 1
+    severity: content_error
+    scope: both
+    legal_basis: "§ 13b Abs. 2 Nr. 4 UStG, § 14 Abs. 4 Satz 1 Nr. 10 UStG"
+    description: >
+      Category AE moves the VAT liability to the customer, and the invoice must
+      say so in words. EN 16931 requires BT-120 or BT-121; § 14 requires the
+      wording. An AE invoice without it is not a valid document.
+    when:
+      all:
+        - field: tax.category
+          op: equals
+          value: AE
+        - field: tax.exemption_reason
+          op: is_empty
+        - field: tax.exemption_code
+          op: is_empty
+    then:
+      - action: flag
+        explain_key: handwerk.reverse_charge_reason_missing
+      - action: tag
+        tag: reverse-charge
+
+  - id: handwerk-reverse-charge-with-vat
+    version: 1
+    severity: content_error
+    scope: both
+    legal_basis: "§ 13b UStG"
+    description: >
+      Reverse charge and a non-zero VAT amount in the same breakdown entry. The
+      customer owes the tax, so the invoice must not also charge it.
+    when:
+      all:
+        - field: tax.category
+          op: equals
+          value: AE
+        - field: tax.tax_amount
+          op: gt
+          value: 0
+    then:
+      - action: flag
+        explain_key: handwerk.reverse_charge_with_vat
+      - action: tag
+        tag: reverse-charge
+
+  - id: handwerk-b2g-leitweg-id
+    version: 1
+    severity: content_error
+    scope: outgoing
+    legal_basis: "§ 4 E-Rechnungsverordnung"
+    description: >
+      A public buyer is addressed by Leitweg-ID in BT-10. Without it the ZRE and
+      OZG-RE portals reject the invoice outright, and the trade never gets paid.
+    when:
+      all:
+        - field: doc.is_b2g
+          op: equals
+          value: false
+        - field: buyer.name
+          op: matches_lexicon
+          value: public_buyer_de
+    then:
+      - action: require_field
+        field: doc.buyer_reference
+        explain_key: handwerk.leitweg_id_missing
+      - action: flag
+        explain_key: handwerk.leitweg_id_missing
+      - action: tag
+        tag: b2g
+
+lexicons:
+  public_buyer_de:
+    - stadt
+    - gemeinde
+    - landkreis
+    - kreisverwaltung
+    - bezirksamt
+    - staatsbetrieb
+    - landesamt
+    - bundesamt
+    - ministerium
+    - behoerde
+    - oeffentlicher auftraggeber

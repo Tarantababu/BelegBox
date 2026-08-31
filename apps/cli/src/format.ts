@@ -70,6 +70,15 @@ export function formatResult(filename: string, r: ValidationResult): string {
       if (f.legalBasis) {
         out.push(`  ${" ".repeat(9)} ${dim(f.legalBasis)}`);
       }
+      // Computed values are the point of the finding - a VAT gap the user can
+      // check against their own arithmetic is what makes it actionable.
+      const params = Object.entries(f.params ?? {});
+      if (params.length > 0) {
+        const rendered = params
+          .map(([key, value]) => `${dim(key)} ${String(value)}`)
+          .join(dim("  ·  "));
+        out.push(`  ${" ".repeat(9)} ${rendered}`);
+      }
     }
   }
 

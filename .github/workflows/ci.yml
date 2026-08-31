@@ -38,6 +38,16 @@ jobs:
       - name: Validate the corpus
         run: pnpm validate --offline corpus/*.xml
 
+      # The case the product exists for: syntactically perfect, materially
+      # wrong. Exit code 1 is the pass condition here.
+      - name: The content layer catches what the syntax layer cannot
+        run: |
+          if pnpm validate --offline --ruleset rulesets/gastro-de.yaml \
+               corpus/gastro-beverage-7pct-01.xml; then
+            echo "expected a content failure on the beverage fixture" >&2
+            exit 1
+          fi
+
   db:
     name: PostgreSQL
     runs-on: ubuntu-latest

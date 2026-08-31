@@ -1,4 +1,12 @@
-import { DetectionError, detect, type DetectionResult } from "@belegbox/core-invoice";
+import {
+  DetectionError,
+  detect,
+  parseInvoice,
+  type DetectionResult,
+  type Invoice,
+} from "@belegbox/core-invoice";
+import { evaluateRuleSet, type RuleFinding, type RuleSet } from "@belegbox/rules-engine";
+import { runDomainRules, type SupplierHistory, type ViesLookup } from "./domain/rules.js";
 import {
   MustangClient,
   MustangUnavailableError,
@@ -18,9 +26,9 @@ export const ENGINE_VERSION = "0.0.0-sprint0";
 /** Placeholder until mustang-svc reports the pinned release (R-2). */
 const CONFIG_UNKNOWN = "unavailable";
 
-const NOT_BUILT_L3 =
-  "L3 domain rules land in F1 week 3-4. Only D-001 (profile legality) is active.";
-const NOT_BUILT_L4 = "L4 tenant rules land in F1 week 3-4.";
+const NO_RULESET = "No ruleset loaded for this tenant.";
+const NO_PARSED_CONTENT =
+  "Document carries no structured content to evaluate.";
 
 function empty(skippedReason: string): LayerResult {
   return { ran: false, skippedReason, findings: [] };
@@ -30,6 +38,14 @@ export interface ValidateOptions {
   client?: MustangClient;
   /** Skips the network call. Used by unit tests and by offline detection runs. */
   skipL1L2?: boolean;
+  /** The tenant's L4 ruleset. Absent means only L3 runs. */
+  ruleSet?: RuleSet;
+  direction?: "incoming" | "outgoing";
+  /** Ports for the domain rules that need lookups (D-004, D-007, D-009). */
+  history?: SupplierHistory;
+  vies?: ViesLookup;
+  /** Pre-resolved VIES answers for L4 `vies_valid`, keyed by VAT id. */
+  viesResults?: Record<string, boolean | undefined>;
 }
 
 export interface ValidateInput {
@@ -98,34 +114,69 @@ export async function validateDocument(
     }
   }
 
-  // --- L3 ------------------------------------------------------------------
-  const l3Findings: Finding[] = [];
-  if (detection.profile.legalClass === "not_einvoice") {
-    l3Findings.push({
-      layer: "l3_domain",
-      code: "D-001",
-      severity: "warning",
-      btRef: "BT-24",
-      legalBasis: "§ 14 Abs. 1 UStG",
-      messageRaw: `Profile "${detection.profile.urn}" (${detection.profile.name}) carries no line-level data and is not an e-invoice.`,
-      explainKey: "domain.d001.not_an_einvoice",
-      params: { profile_urn: detection.profile.urn, profile_name: detection.profile.name },
-      versions,
-    });
-  }
-  const l3: LayerResult = { ran: true, skippedReason: NOT_BUILT_L3, findings: l3Findings };
+  // --- L3 + L4 -------------------------------------------------------------
+  //
+  // Both content layers evaluate against the parsed invoice, and both are
+  // barred from touching the form verdict. L4 cannot even express a form_error:
+  // the loader rejects that severity and the type excludes it.
+  const direction = opts.direction ?? "incoming";
+  let invoice: Invoice | undefined;
+  let parseError: string | undefined;
 
-  // --- L4 ------------------------------------------------------------------
-  const l4: LayerResult = empty(NOT_BUILT_L4);
+  try {
+    invoice = parseInvoice(input.bytes);
+  } catch (err) {
+    parseError = (err as Error).message;
+  }
+
+  let l3: LayerResult;
+  let l4: LayerResult;
+
+  if (!invoice) {
+    l3 = empty(parseError ?? NO_PARSED_CONTENT);
+    l4 = empty(parseError ?? NO_PARSED_CONTENT);
+  } else {
+    const domainFindings = await runDomainRules({
+      invoice,
+      detection,
+      versions,
+      direction,
+      ...(opts.history ? { history: opts.history } : {}),
+      ...(opts.vies ? { vies: opts.vies } : {}),
+    });
+    l3 = { ran: true, findings: domainFindings };
+
+    if (!opts.ruleSet) {
+      l4 = empty(NO_RULESET);
+    } else if (detection.profile.legalClass === "not_einvoice") {
+      // A MINIMUM profile has no lines for a ruleset to read. Running it would
+      // produce silence that looks like a pass.
+      l4 = empty("Document is not an e-invoice; tenant rules were not applied.");
+    } else {
+      const evaluation = evaluateRuleSet(opts.ruleSet, {
+        invoice,
+        direction,
+        ...(opts.viesResults ? { viesResults: opts.viesResults } : {}),
+      });
+      l4 = {
+        ran: true,
+        findings: evaluation.findings.map((f) =>
+          tenantFinding(f, versions, opts.ruleSet?.version),
+        ),
+      };
+    }
+  }
 
   const contentFindings = [...l3.findings, ...l4.findings];
   const contentFailed = contentFindings.some((f) => f.severity === "content_error");
   const contentVerdict: Verdict =
     detection.profile.legalClass === "not_einvoice"
       ? "n_a"
-      : contentFailed
-        ? "fail"
-        : "pass";
+      : !l3.ran
+        ? "unknown"
+        : contentFailed
+          ? "fail"
+          : "pass";
 
   const findings = [...l1.findings, ...l2.findings, ...contentFindings];
 
@@ -180,9 +231,36 @@ function notAnEInvoice(filename: string, err: DetectionError): ValidationResult 
       l1_schema: empty(reason),
       l2_schematron: empty(reason),
       l3_domain: { ran: true, findings: [finding] },
-      l4_tenant: empty(NOT_BUILT_L4),
+      l4_tenant: empty(reason),
     },
     findings: [finding],
     versions,
+  };
+}
+
+/**
+ * Lifts an L4 rule finding into the pipeline's finding shape.
+ *
+ * The ruleset version travels with it (R-2): re-deriving a verdict in 2033
+ * needs the rules that produced it, not just the validator that ran alongside.
+ */
+function tenantFinding(
+  f: RuleFinding,
+  versions: EngineVersions,
+  rulesetVersion: number | undefined,
+): Finding {
+  const scope = f.scopeRef ? ` (${f.scopeRef.kind} ${f.scopeRef.id ?? f.scopeRef.index + 1})` : "";
+  return {
+    layer: "l4_tenant",
+    code: f.ruleId,
+    severity: f.severity,
+    ...(f.legalBasis ? { legalBasis: f.legalBasis } : {}),
+    messageRaw: f.message ?? `Rule ${f.ruleId} v${f.ruleVersion} matched${scope}.`,
+    explainKey: f.explainKey,
+    params: f.params,
+    versions: {
+      ...versions,
+      ...(rulesetVersion !== undefined ? { rulesetVersion } : {}),
+    },
   };
 }
