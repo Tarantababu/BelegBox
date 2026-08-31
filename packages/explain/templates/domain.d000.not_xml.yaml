@@ -1,0 +1,24 @@
+key: domain.d000.not_xml
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      „{filename}“ enthält keine XML-Daten und konnte nicht als E-Rechnung
+      gelesen werden.
+    legal_basis: >-
+      Eine E-Rechnung im Sinne des § 14 Abs. 1 UStG liegt nur bei einem
+      strukturierten Format nach EN 16931 vor. Aufbewahrungspflichtig ist der
+      Beleg nach § 14b UStG trotzdem.
+    next_step: >-
+      Belegbox archiviert den Beleg unverändert.
+  tr:
+    observation: >-
+      „{filename}“ XML verisi içermiyor ve e-fatura olarak okunamadı.
+    legal_basis: >-
+      § 14 Abs. 1 UStG anlamında e-fatura, yalnızca EN 16931'e uygun
+      yapılandırılmış bir formatta söz konusudur. Belge yine de § 14b UStG
+      uyarınca saklanmak zorundadır.
+    next_step: >-
+      Belegbox belgeyi olduğu gibi arşivler.

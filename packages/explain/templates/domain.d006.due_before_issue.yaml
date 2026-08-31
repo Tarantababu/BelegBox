@@ -1,0 +1,27 @@
+key: domain.d006.due_before_issue
+version: 1
+approved: false
+required_params: [issue_date, due_date]
+locales:
+  de:
+    observation: >-
+      Das Fälligkeitsdatum {due_date, date} liegt vor dem Rechnungsdatum
+      {issue_date, date}.
+    legal_basis: >-
+      EN 16931 führt das Rechnungsdatum in BT-2 und das Fälligkeitsdatum in
+      BT-9. Das Rechnungsdatum gehört nach § 14 Abs. 4 Satz 1 Nr. 3 UStG zu den
+      Pflichtangaben; eine Zahlungsfrist läuft ab diesem Datum.
+    next_step: >-
+      Meist ist eines der beiden Felder im System des Rechnungsstellers falsch
+      belegt.
+  tr:
+    observation: >-
+      Vade tarihi {due_date, date}, fatura tarihi {issue_date, date} tarihinden
+      önce.
+    legal_basis: >-
+      EN 16931, fatura tarihini BT-2, vade tarihini BT-9 alanında taşır. Fatura
+      tarihi § 14 Abs. 4 Satz 1 Nr. 3 UStG uyarınca zorunlu bilgilerdendir;
+      ödeme süresi bu tarihten itibaren işler.
+    next_step: >-
+      Genellikle iki alandan biri, faturayı kesen tarafın sisteminde yanlış
+      doldurulmuştur.

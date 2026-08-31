@@ -46,8 +46,8 @@ roadmap does not mean its turn has come.
 | `apps/api` | **Week 2.** Fastify `/v1`, archive proof endpoint |
 | `packages/rules-engine` | **Week 3.** YAML → AST → evaluator, dry-run harness |
 | `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
+| `packages/explain` | **Week 4.** Versioned templates, DE + TR, StBerG lint |
 | `apps/web` | Week 4-5. Next.js, consumes `/v1` |
-| `packages/explain` | Week 4-5. Versioned templates, DE + TR |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
 | `apps/mobile` | F3 |
@@ -109,6 +109,41 @@ which point an expression string is untrusted code running on our servers. The
 grammar is numbers, four operators, parentheses and whitelisted field names —
 nothing else parses.
 
+## Explanations
+
+```bash
+pnpm validate --offline --ruleset rulesets/gastro-de.yaml --explain tr \
+  corpus/gastro-beverage-7pct-01.xml
+```
+
+Explanations are **versioned YAML templates, rendered by a pure function** — no
+LLM at request time. An LLM's part is drafting the YAML before review, never
+rendering at the moment a user reads it. That removes the hallucination risk
+from a tax explanation, removes an AVV subprocessor, and makes a stored verdict
+re-derivable in 2033.
+
+§ 2–5 StBerG reserve tax advice to Steuerberater, so the schema is built to make
+advice **unwriteable**:
+
+- A template has `observation` (what this document says) and `legal_basis` (what
+  the law says in general). There is no field for what the reader should do
+  about their tax position.
+- The **disclaimer belongs to the renderer**, not the template. A template that
+  even declares the field is refused — otherwise one locale eventually ships
+  without it, and that is the locale nobody reviewed.
+- A **lint refuses advisory wording** at load: `Du musst`, `richtig wäre`,
+  `doğrusu`, `yapman gereken`. The distinction it rests on is grammatical
+  person — German `muss` states the law, `Du musst` instructs the reader;
+  Turkish `zorundadır` states it, `zorundasın` instructs. The v2 prototype's
+  own strings are in the test suite as the cases that must fail.
+- `basis_kind` separates law from heuristic. D-008 and D-009 are Belegbox's own
+  fraud signals, and a template declaring one **may not cite a statute** —
+  dressing a heuristic up as law is the more damaging mistake.
+
+Every template ships `approved: false` until a lawyer reviews the wording
+(Ek A). Production refuses to render an unapproved one; the CLI renders them and
+says so.
+
 ## Two invariants
 
 **The form verdict comes from L1 and L2 alone.** L3 and L4 cannot touch it. The
@@ -145,6 +180,12 @@ tell a customer their invoice is wrong.
 
 **A missing field is not zero.** `compute` refuses to resolve one, because a
 VAT gap that silently reads 0.00 looks like a harmless finding.
+
+And one from the explain layer:
+
+**No template means the raw validator output, never an invented explanation.**
+An honest "we have not written this one yet" beats a fluent paragraph about a
+tax rule nobody checked.
 
 ## What is not verified yet
 

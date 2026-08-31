@@ -1,0 +1,26 @@
+key: domain.d002.exemption_reason_missing
+version: 1
+approved: false
+required_params: [vat_category]
+locales:
+  de:
+    observation: >-
+      Die Steuerkategorie {vat_category} wird verwendet, ohne dass ein
+      Befreiungsgrund in BT-120 (Text) oder BT-121 (Code) angegeben ist.
+    legal_basis: >-
+      EN 16931 verlangt bei den Kategorien AE, E, K, G und Z eine Begründung
+      der Steuerbefreiung. § 14 Abs. 4 UStG verlangt denselben Hinweis auf der
+      Rechnung.
+    next_step: >-
+      Eine korrigierte E-Rechnung mit dem Befreiungsgrund lässt sich beim
+      Rechnungssteller anfordern.
+  tr:
+    observation: >-
+      {vat_category} vergi kategorisi kullanılmış, ancak BT-120 (metin) veya
+      BT-121 (kod) alanında muafiyet gerekçesi yok.
+    legal_basis: >-
+      EN 16931, AE, E, K, G ve Z kategorilerinde muafiyet gerekçesi ister.
+      § 14 Abs. 4 UStG aynı bilgiyi faturada arar.
+    next_step: >-
+      Faturayı kesen taraftan, gerekçeyi içeren düzeltilmiş bir e-fatura
+      istenebilir.

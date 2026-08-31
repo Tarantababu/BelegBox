@@ -1,3 +1,8 @@
+import {
+  renderExplanation,
+  type Locale,
+  type Registry,
+} from "@belegbox/explain";
 import type { ValidationResult, Verdict } from "@belegbox/validation";
 
 const ESC = "\u001b";
@@ -35,7 +40,16 @@ const SEVERITY_COLOR = {
  * Prints the dual verdict the way the product shows it - form and content side
  * by side, never merged into a single score.
  */
-export function formatResult(filename: string, r: ValidationResult): string {
+export interface ExplainOptions {
+  registry: Registry;
+  locale: Locale;
+}
+
+export function formatResult(
+  filename: string,
+  r: ValidationResult,
+  explain?: ExplainOptions,
+): string {
   const out: string[] = [];
 
   out.push(bold(filename));
@@ -78,6 +92,28 @@ export function formatResult(filename: string, r: ValidationResult): string {
           .map(([key, value]) => `${dim(key)} ${String(value)}`)
           .join(dim("  ·  "));
         out.push(`  ${" ".repeat(9)} ${rendered}`);
+      }
+
+      if (explain && f.explainKey) {
+        // Templates are unapproved until the lawyer signs off. The CLI is a
+        // development tool, so it renders them and says so.
+        const text = renderExplanation(
+          explain.registry,
+          f.explainKey,
+          explain.locale,
+          f.params ?? {},
+          { allowUnapproved: true, rawMessage: f.messageRaw },
+        );
+        const pad = " ".repeat(11);
+        out.push("");
+        out.push(`${pad}${text.observation}`);
+        if (text.legalBasis) out.push(`${pad}${dim(text.legalBasis)}`);
+        if (text.nextStep) out.push(`${pad}${dim(text.nextStep)}`);
+        out.push(`${pad}${yellow(text.disclaimer)}`);
+        if (text.fallback) {
+          out.push(`${pad}${dim("(no template yet - raw validator output shown)")}`);
+        }
+        out.push("");
       }
     }
   }

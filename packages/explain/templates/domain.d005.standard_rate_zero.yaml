@@ -1,0 +1,23 @@
+key: domain.d005.standard_rate_zero
+version: 1
+approved: false
+locales:
+  de:
+    observation: >-
+      Die Steuerkategorie S (Regelsteuersatz) ist mit einem Steuersatz von 0 %
+      angegeben.
+    legal_basis: >-
+      Kategorie S bezeichnet steuerpflichtige Umsätze zum Regel- oder
+      ermäßigten Satz. Steuerfreie oder nullbesteuerte Umsätze tragen im
+      Codeverzeichnis UNTDID 5305 eine eigene Kategorie.
+    next_step: >-
+      Der Rechnungssteller kann die zutreffende Kategorie bestätigen.
+  tr:
+    observation: >-
+      S (genel oran) vergi kategorisi %0 oranla belirtilmiş.
+    legal_basis: >-
+      S kategorisi, genel veya indirimli oranla vergilendirilen işlemleri
+      belirtir. Vergiden muaf veya sıfır oranlı işlemler UNTDID 5305 kod
+      listesinde ayrı bir kategori taşır.
+    next_step: >-
+      Uygun kategori faturayı kesen tarafça teyit edilebilir.

@@ -1,0 +1,27 @@
+key: domain.d009.amount_outlier
+version: 1
+approved: false
+basis_kind: belegbox_signal
+required_params: [gross_amount, mean_amount, factor, sample_size]
+locales:
+  de:
+    observation: >-
+      Der Rechnungsbetrag {gross_amount, currency} liegt beim {factor, number}-fachen
+      des Durchschnitts von {mean_amount, currency} aus den letzten
+      {sample_size, number} Rechnungen dieses Lieferanten.
+    legal_basis: >-
+      Das ist kein Formfehler, sondern ein statistischer Hinweis von Belegbox.
+      Ungewöhnliche Beträge sind ein bekanntes Merkmal von Rechnungsbetrug.
+    next_step: >-
+      Ein Abgleich mit der Bestellung oder dem Lieferschein ordnet den Betrag
+      ein.
+  tr:
+    observation: >-
+      {gross_amount, currency} tutarı, bu tedarikçinin son
+      {sample_size, number} faturasındaki {mean_amount, currency} ortalamanın
+      {factor, number} katı.
+    legal_basis: >-
+      Bu bir biçim hatası değil, Belegbox'ın istatistiksel uyarısıdır. Olağan
+      dışı tutarlar, fatura dolandırıcılığının bilinen bir işaretidir.
+    next_step: >-
+      Siparişle veya irsaliyeyle karşılaştırmak tutarı yerine oturtur.

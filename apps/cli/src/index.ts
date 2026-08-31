@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
+import { loadTemplateDir, type Locale, type TemplateRegistry } from "@belegbox/explain";
 import { loadRuleSet, type RuleSet } from "@belegbox/rules-engine";
 import { MustangClient, validateDocument } from "@belegbox/validation";
 import { formatResult } from "./format.js";
@@ -15,6 +16,8 @@ Options
   --json            Machine-readable output.
   --offline         Skip L1/L2. Runs detection plus L3/L4, no mustang-svc.
   --ruleset <file>  Load an L4 ruleset (YAML) and evaluate it.
+  --explain <lang>  Render explanations: de or tr. Shows the user-facing text
+                    beside the raw validator output.
   --url <url>       mustang-svc base URL. Default: $MUSTANG_SVC_URL or
                     http://localhost:8081
 
@@ -37,6 +40,7 @@ async function main(argv: string[]): Promise<number> {
       json: { type: "boolean", default: false },
       offline: { type: "boolean", default: false },
       ruleset: { type: "string" },
+      explain: { type: "string" },
       url: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -69,6 +73,15 @@ async function main(argv: string[]): Promise<number> {
     }
   }
 
+  let explain: { registry: TemplateRegistry; locale: Locale } | undefined;
+  if (values.explain) {
+    if (values.explain !== "de" && values.explain !== "tr") {
+      process.stderr.write(`--explain takes de or tr, got "${values.explain}".\n`);
+      return 2;
+    }
+    explain = { registry: await loadTemplateDir(), locale: values.explain };
+  }
+
   const client = values.url ? new MustangClient({ baseUrl: values.url }) : undefined;
   const results: unknown[] = [];
   let failed = false;
@@ -98,7 +111,7 @@ async function main(argv: string[]): Promise<number> {
     if (values.json) {
       results.push({ file, ...result });
     } else {
-      process.stdout.write(`${formatResult(file, result)}\n\n`);
+      process.stdout.write(`${formatResult(file, result, explain)}\n\n`);
     }
   }
 

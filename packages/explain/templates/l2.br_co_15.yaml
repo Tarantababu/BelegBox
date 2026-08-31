@@ -1,0 +1,26 @@
+key: l2.br-co-15
+version: 1
+approved: false
+locales:
+  de:
+    observation: >-
+      Der ausgewiesene Bruttobetrag (BT-112) entspricht nicht der Summe aus
+      Nettobetrag (BT-109) und Umsatzsteuerbetrag (BT-110).
+    legal_basis: >-
+      Die Geschäftsregel BR-CO-15 der EN 16931 verlangt, dass BT-112 gleich
+      BT-109 plus BT-110 ist. Der offizielle KoSIT-Validator prüft diese Regel,
+      und ein Dokument, das sie verletzt, ist formal fehlerhaft.
+    next_step: >-
+      Der Fehler liegt im System des Rechnungsstellers. Belegbox kann einen
+      Entwurf für die Anforderung einer korrigierten E-Rechnung erzeugen.
+  tr:
+    observation: >-
+      Gösterilen brüt tutar (BT-112), net tutar (BT-109) ile KDV tutarının
+      (BT-110) toplamına eşit değil.
+    legal_basis: >-
+      EN 16931'in BR-CO-15 iş kuralı, BT-112'nin BT-109 artı BT-110'a eşit
+      olmasını ister. Resmî KoSIT doğrulayıcısı bu kuralı denetler; kuralı ihlal
+      eden belge biçimsel olarak hatalıdır.
+    next_step: >-
+      Hata faturayı kesen tarafın sistemindedir. Belegbox, düzeltilmiş e-fatura
+      talebi için taslak üretebilir.

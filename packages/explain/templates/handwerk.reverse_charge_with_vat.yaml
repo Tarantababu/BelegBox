@@ -1,0 +1,24 @@
+key: handwerk.reverse_charge_with_vat
+version: 1
+approved: false
+required_params: [tax_category]
+locales:
+  de:
+    observation: >-
+      Diese Rechnung weist die Steuerkategorie {tax_category} aus und
+      gleichzeitig einen Umsatzsteuerbetrag größer als null.
+    legal_basis: >-
+      Bei der Steuerschuldnerschaft des Leistungsempfängers nach § 13b UStG
+      schuldet der Leistungsempfänger die Steuer. Die Rechnung weist deshalb
+      keine Umsatzsteuer aus.
+    next_step: >-
+      Der Rechnungssteller kann klären, welche der beiden Angaben gemeint war.
+  tr:
+    observation: >-
+      Bu faturada hem {tax_category} vergi kategorisi hem de sıfırdan büyük bir
+      KDV tutarı var.
+    legal_basis: >-
+      § 13b UStG kapsamında vergi borcu alıcıya geçtiğinde vergiyi alıcı beyan
+      eder. Bu nedenle faturada KDV gösterilmez.
+    next_step: >-
+      Hangi bilginin kastedildiği faturayı kesen tarafla netleştirilebilir.

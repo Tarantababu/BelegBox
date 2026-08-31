@@ -1,0 +1,24 @@
+key: domain.d000.missing_profile
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      In „{filename}“ fehlt die Angabe des Profils (CustomizationID in UBL,
+      GuidelineSpecifiedDocumentContextParameter in CII).
+    legal_basis: >-
+      Über dieses Feld gibt ein Dokument an, welcher Ausprägung von EN 16931 es
+      folgt. Ohne die Angabe lässt sich nicht bestimmen, gegen welche Regeln
+      geprüft werden muss.
+    next_step: >-
+      Der Rechnungssteller kann eine Fassung mit Profilangabe senden.
+  tr:
+    observation: >-
+      „{filename}“ dosyasında profil bilgisi eksik (UBL'de CustomizationID,
+      CII'de GuidelineSpecifiedDocumentContextParameter).
+    legal_basis: >-
+      Bir belge bu alanla EN 16931'in hangi türevine uyduğunu bildirir. Bu bilgi
+      olmadan hangi kurallara göre denetleneceği belirlenemez.
+    next_step: >-
+      Faturayı kesen taraf, profil bilgisi içeren bir sürüm gönderebilir.

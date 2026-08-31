@@ -1,0 +1,26 @@
+key: domain.d000.pdf_container
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      „{filename}“ ist ein PDF ohne eingebettete XML-Datei. Damit enthält der
+      Beleg keine strukturierten Rechnungsdaten.
+    legal_basis: >-
+      Eine E-Rechnung im Sinne des § 14 Abs. 1 UStG liegt nur bei einem
+      strukturierten Format nach EN 16931 vor. Ein reines PDF ist eine sonstige
+      Rechnung. Aufbewahrungspflichtig ist der Beleg nach § 14b UStG trotzdem.
+    next_step: >-
+      Belegbox archiviert den Beleg und kann die Felder per Texterkennung
+      auslesen.
+  tr:
+    observation: >-
+      „{filename}“ gömülü XML içermeyen bir PDF. Bu nedenle belgede
+      yapılandırılmış fatura verisi yok.
+    legal_basis: >-
+      § 14 Abs. 1 UStG anlamında e-fatura, yalnızca EN 16931'e uygun
+      yapılandırılmış bir formatta söz konusudur. Salt PDF „sonstige Rechnung“
+      sayılır. Belge yine de § 14b UStG uyarınca saklanmak zorundadır.
+    next_step: >-
+      Belegbox belgeyi arşivler ve alanları metin tanıma ile okuyabilir.

@@ -43,10 +43,19 @@ jobs:
       - name: The content layer catches what the syntax layer cannot
         run: |
           if pnpm validate --offline --ruleset rulesets/gastro-de.yaml \
-               corpus/gastro-beverage-7pct-01.xml; then
+               --explain tr corpus/gastro-beverage-7pct-01.xml; then
             echo "expected a content failure on the beverage fixture" >&2
             exit 1
           fi
+
+      # Every explanation must carry the disclaimer. Rendering is what proves
+      # it, since the disclaimer is appended by the renderer and cannot be
+      # switched off by a template.
+      - name: Explanations carry their disclaimer
+        run: |
+          pnpm validate --offline --ruleset rulesets/gastro-de.yaml \
+            --explain de corpus/gastro-beverage-7pct-01.xml > out.txt || true
+          grep -q "keine steuerliche Beratung" out.txt
 
   db:
     name: PostgreSQL

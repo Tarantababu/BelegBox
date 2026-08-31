@@ -1,0 +1,31 @@
+key: gastro.beverage_wrong_rate
+version: 1
+approved: false
+required_params: [line_description, line_vat_rate, vat_gap]
+locales:
+  de:
+    observation: >-
+      Die Position „{line_description}“ ist auf dieser Rechnung mit
+      {line_vat_rate, percent} Umsatzsteuer ausgewiesen. Bei
+      {vat_gap, currency} liegt die Differenz zum Regelsteuersatz.
+    legal_basis: >-
+      Seit dem 1. Januar 2026 gelten für Speisen dauerhaft 7 % Umsatzsteuer
+      (§ 12 Abs. 2 Nr. 15 UStG). Getränke sind davon ausgenommen und
+      unterliegen dem Regelsteuersatz von 19 %. Ausnahmen bestehen unter
+      anderem für Milch und Milchmischgetränke mit einem Milchanteil von über
+      75 % sowie für Leitungswasser.
+    next_step: >-
+      Belegbox kann daraus einen Entwurf für eine Korrekturanfrage an den
+      Lieferanten erzeugen.
+  tr:
+    observation: >-
+      Bu faturada „{line_description}“ kalemi {line_vat_rate, percent} KDV ile
+      düzenlenmiş. Genel orana göre fark {vat_gap, currency}.
+    legal_basis: >-
+      1 Ocak 2026'dan bu yana yemekler kalıcı olarak %7 KDV'ye tabidir
+      (§ 12 Abs. 2 Nr. 15 UStG). İçecekler bu kapsamın dışındadır ve %19 genel
+      orana tabidir. Süt ve süt oranı %75'in üzerindeki karışık içecekler ile
+      musluk suyu istisna kapsamındadır.
+    next_step: >-
+      Belegbox, tedarikçiye gönderilecek Almanca düzeltme talebi taslağı
+      üretebilir.

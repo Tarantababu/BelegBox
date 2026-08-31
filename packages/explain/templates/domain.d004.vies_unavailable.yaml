@@ -1,0 +1,25 @@
+key: domain.d004.vies_unavailable
+version: 1
+approved: false
+required_params: [vat_id]
+locales:
+  de:
+    observation: >-
+      Die Umsatzsteuer-Identifikationsnummer {vat_id} konnte nicht geprüft
+      werden: das VIES-System der EU hat nicht geantwortet. Über die Gültigkeit
+      der Nummer sagt das nichts aus.
+    legal_basis: >-
+      § 18e UStG sieht die Bestätigung ausländischer USt-IdNr. vor. Die
+      Verfügbarkeit des Abfragedienstes liegt bei den Finanzverwaltungen der
+      Mitgliedstaaten.
+    next_step: >-
+      Belegbox wiederholt die Abfrage automatisch.
+  tr:
+    observation: >-
+      {vat_id} KDV kimlik numarası kontrol edilemedi: AB'nin VIES sistemi yanıt
+      vermedi. Bu, numaranın geçerliliği hakkında bir şey söylemez.
+    legal_basis: >-
+      § 18e UStG yabancı KDV numaralarının teyidini öngörür. Sorgu servisinin
+      erişilebilirliği üye devletlerin mali idarelerindedir.
+    next_step: >-
+      Belegbox sorguyu otomatik olarak tekrarlar.

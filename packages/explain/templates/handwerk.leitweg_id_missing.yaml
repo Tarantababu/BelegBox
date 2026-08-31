@@ -1,0 +1,29 @@
+key: handwerk.leitweg_id_missing
+version: 1
+approved: false
+required_params: [buyer_name]
+locales:
+  de:
+    observation: >-
+      Der Rechnungsempfänger „{buyer_name}“ trägt eine Bezeichnung, die auf
+      einen öffentlichen Auftraggeber hindeutet. In BT-10 (Buyer reference)
+      steht keine Leitweg-ID.
+    legal_basis: >-
+      Für Rechnungen an öffentliche Auftraggeber schreibt § 4 der
+      E-Rechnungsverordnung die Angabe der Leitweg-ID vor. Sie hat das Format
+      04011000-1234512345-06. Die Portale ZRE und OZG-RE weisen Rechnungen ohne
+      gültige Leitweg-ID ab.
+    next_step: >-
+      Die Leitweg-ID vergibt der Auftraggeber; sie steht meist in der Bestellung
+      oder im Vergabeschreiben.
+  tr:
+    observation: >-
+      „{buyer_name}“ adı kamu kurumu olabileceğine işaret ediyor. BT-10 (Buyer
+      reference) alanında Leitweg-ID yok.
+    legal_basis: >-
+      Kamu kurumlarına kesilen faturalarda § 4 E-Rechnungsverordnung Leitweg-ID
+      belirtilmesini şart koşar. Biçimi 04011000-1234512345-06 şeklindedir.
+      ZRE ve OZG-RE portalları geçerli Leitweg-ID olmayan faturaları reddeder.
+    next_step: >-
+      Leitweg-ID'yi kurum verir; genellikle siparişte veya ihale yazısında
+      bulunur.

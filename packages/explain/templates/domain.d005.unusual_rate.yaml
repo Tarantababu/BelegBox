@@ -1,0 +1,23 @@
+key: domain.d005.unusual_rate
+version: 1
+approved: false
+required_params: [vat_rate]
+locales:
+  de:
+    observation: >-
+      Diese Inlandsrechnung weist einen Steuersatz von {vat_rate, percent} aus.
+    legal_basis: >-
+      In Deutschland gelten der Regelsteuersatz von 19 % (§ 12 Abs. 1 UStG) und
+      der ermäßigte Satz von 7 % (§ 12 Abs. 2 UStG).
+    next_step: >-
+      Ein Blick auf den Sitz beider Parteien zeigt, ob es sich doch um einen
+      grenzüberschreitenden Umsatz handelt.
+  tr:
+    observation: >-
+      Bu yurt içi faturada {vat_rate, percent} oranı gösterilmiş.
+    legal_basis: >-
+      Almanya'da %19 genel oran (§ 12 Abs. 1 UStG) ve %7 indirimli oran
+      (§ 12 Abs. 2 UStG) geçerlidir.
+    next_step: >-
+      Her iki tarafın merkezine bakmak, işlemin sınır ötesi olup olmadığını
+      gösterir.

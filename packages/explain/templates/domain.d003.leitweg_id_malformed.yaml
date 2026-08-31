@@ -1,0 +1,27 @@
+key: domain.d003.leitweg_id_malformed
+version: 1
+approved: false
+required_params: [buyer_reference]
+locales:
+  de:
+    observation: >-
+      In BT-10 steht „{buyer_reference}“. Der Wert hat die Form einer
+      Leitweg-ID, entspricht aber nicht deren Format.
+    legal_basis: >-
+      § 4 der E-Rechnungsverordnung verlangt für Rechnungen an öffentliche
+      Auftraggeber die Leitweg-ID. EN 16931 führt sie in BT-10. Das Format ist
+      04011000-1234512345-06: Grobadressierung, Feinadressierung und
+      Prüfziffer, getrennt durch Bindestriche.
+    next_step: >-
+      Der Auftraggeber kann die vollständige Leitweg-ID bestätigen.
+  tr:
+    observation: >-
+      BT-10 alanında „{buyer_reference}“ var. Değer Leitweg-ID biçimine
+      benziyor, ancak biçime uymuyor.
+    legal_basis: >-
+      § 4 E-Rechnungsverordnung, kamu kurumlarına kesilen faturalarda Leitweg-ID
+      ister. EN 16931 bunu BT-10 alanında taşır. Biçimi
+      04011000-1234512345-06 şeklindedir: kaba adres, ince adres ve kontrol
+      hanesi, tire ile ayrılır.
+    next_step: >-
+      Tam Leitweg-ID kurumdan teyit edilebilir.

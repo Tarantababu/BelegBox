@@ -1,0 +1,25 @@
+key: gastro.food_wrong_rate
+version: 1
+approved: false
+required_params: [line_description, line_vat_rate]
+locales:
+  de:
+    observation: >-
+      Die Position „{line_description}“ ist mit {line_vat_rate, percent}
+      Umsatzsteuer ausgewiesen.
+    legal_basis: >-
+      Seit dem 1. Januar 2026 unterliegen Speisen dauerhaft dem ermäßigten
+      Steuersatz von 7 % (§ 12 Abs. 2 Nr. 15 UStG) - im Restaurant, außer Haus,
+      bei Lieferung und im Catering.
+    next_step: >-
+      Ein Abgleich mit dem Lieferanten zeigt, ob die Position als Speise oder
+      als Getränk geführt wird.
+  tr:
+    observation: >-
+      „{line_description}“ kalemi {line_vat_rate, percent} KDV ile düzenlenmiş.
+    legal_basis: >-
+      1 Ocak 2026'dan bu yana yemekler kalıcı olarak %7 indirimli orana tabidir
+      (§ 12 Abs. 2 Nr. 15 UStG) — restoranda, paket serviste, teslimatta ve
+      catering'de.
+    next_step: >-
+      Kalemin yemek mi içecek mi sayıldığı tedarikçiyle karşılaştırılabilir.

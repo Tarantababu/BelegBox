@@ -1,0 +1,28 @@
+key: domain.d001.not_an_einvoice
+version: 1
+approved: false
+required_params: [profile_name, profile_urn]
+locales:
+  de:
+    observation: >-
+      Dieses Dokument nutzt das Profil {profile_name} ({profile_urn}). Dieses
+      Profil überträgt keine Daten auf Positionsebene.
+    legal_basis: >-
+      Die ZUGFeRD-Profile MINIMUM und BASIC WL sind nach der Definition des
+      Standards Buchhaltungshilfen, keine strukturierten Rechnungen im Sinne
+      des § 14 Abs. 1 UStG. Ein Beleg in diesem Profil gilt als sonstige
+      Rechnung.
+    next_step: >-
+      Viele Lieferanten wissen das nicht. Belegbox kann eine Nachricht
+      erzeugen, die um ein Profil ab EN 16931 bittet.
+  tr:
+    observation: >-
+      Bu belge {profile_name} profilini kullanıyor ({profile_urn}). Bu profil
+      kalem düzeyinde veri taşımaz.
+    legal_basis: >-
+      ZUGFeRD'in MINIMUM ve BASIC WL profilleri, standardın kendi tanımına göre
+      muhasebe yardımcısıdır; § 14 Abs. 1 UStG anlamında yapılandırılmış fatura
+      değildir. Bu profildeki bir belge „sonstige Rechnung“ sayılır.
+    next_step: >-
+      Tedarikçilerin çoğu bunu bilmiyor. Belegbox, EN 16931 ve üzeri bir profil
+      isteyen bir mesaj üretebilir.

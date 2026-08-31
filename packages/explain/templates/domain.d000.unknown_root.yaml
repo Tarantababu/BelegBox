@@ -1,0 +1,24 @@
+key: domain.d000.unknown_root
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      „{filename}“ ist XML, aber kein Rechnungsdokument nach EN 16931. Erwartet
+      werden die Wurzelelemente Invoice, CreditNote oder CrossIndustryInvoice.
+    legal_basis: >-
+      EN 16931 wird in den Syntaxen UBL 2.1 und UN/CEFACT CII D16B abgebildet.
+      Andere XML-Dokumente fallen nicht darunter.
+    next_step: >-
+      Häufig ist es ein Lieferschein oder ein Auftragsdokument aus demselben
+      System.
+  tr:
+    observation: >-
+      „{filename}“ bir XML, ancak EN 16931'e göre fatura belgesi değil.
+      Beklenen kök öğeler Invoice, CreditNote veya CrossIndustryInvoice'tur.
+    legal_basis: >-
+      EN 16931, UBL 2.1 ve UN/CEFACT CII D16B sözdizimlerinde karşılanır. Diğer
+      XML belgeleri bu kapsama girmez.
+    next_step: >-
+      Çoğu zaman aynı sistemden gelen bir irsaliye veya sipariş belgesidir.

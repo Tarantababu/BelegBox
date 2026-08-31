@@ -1,0 +1,27 @@
+key: domain.d004.vat_id_invalid
+version: 1
+approved: false
+required_params: [vat_id]
+locales:
+  de:
+    observation: >-
+      Die Umsatzsteuer-Identifikationsnummer {vat_id} ist im
+      Mehrwertsteuer-Informationsaustauschsystem der EU (VIES) nicht als gültig
+      registriert.
+    legal_basis: >-
+      § 18e UStG sieht die Bestätigung ausländischer USt-IdNr. vor. Für
+      innergemeinschaftliche Lieferungen knüpft § 6a Abs. 1 UStG an eine
+      gültige USt-IdNr. des Abnehmers an.
+    next_step: >-
+      Ein Abgleich der Nummer mit dem Geschäftspartner klärt meist einen
+      Zahlendreher.
+  tr:
+    observation: >-
+      {vat_id} KDV kimlik numarası, AB'nin VIES sisteminde geçerli olarak
+      kayıtlı değil.
+    legal_basis: >-
+      § 18e UStG yabancı KDV numaralarının teyidini öngörür. AB içi teslimlerde
+      § 6a Abs. 1 UStG alıcının geçerli bir KDV numarasına sahip olmasını arar.
+    next_step: >-
+      Numaranın iş ortağıyla karşılaştırılması çoğu zaman bir rakam hatasını
+      ortaya çıkarır.

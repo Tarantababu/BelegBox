@@ -1,0 +1,29 @@
+key: domain.d008.iban_country_mismatch
+version: 1
+approved: false
+basis_kind: belegbox_signal
+required_params: [vat_country, iban_country, iban]
+locales:
+  de:
+    observation: >-
+      Die USt-IdNr. des Lieferanten ist in {vat_country} registriert, das
+      angegebene Zahlungskonto {iban} liegt in {iban_country}.
+    legal_basis: >-
+      Das ist kein Rechtsverstoß, sondern ein Hinweis von Belegbox. Ein Konto in
+      einem anderen Land ist zulässig und kommt vor. Bei Rechnungsbetrug ist
+      eine ausgetauschte IBAN allerdings das häufigste Merkmal, weil der Beleg
+      im Übrigen echt ist.
+    next_step: >-
+      Ein Rückruf beim Lieferanten unter der aus früheren Belegen bekannten
+      Nummer - nicht unter der auf dieser Rechnung - klärt das.
+  tr:
+    observation: >-
+      Tedarikçinin KDV numarası {vat_country} ülkesinde kayıtlı, belirtilen
+      ödeme hesabı {iban} ise {iban_country} ülkesinde.
+    legal_basis: >-
+      Bu bir hukuka aykırılık değil, Belegbox'ın uyarısıdır. Başka bir ülkedeki
+      hesap mümkündür ve sık görülür. Ancak fatura dolandırıcılığında en yaygın
+      işaret, belgenin geri kalanı gerçekken IBAN'ın değiştirilmiş olmasıdır.
+    next_step: >-
+      Tedarikçiyi eski belgelerden bilinen numaradan aramak — bu faturadaki
+      numaradan değil — durumu netleştirir.

@@ -1,0 +1,24 @@
+key: domain.d005.rate_category_mismatch
+version: 1
+approved: false
+required_params: [vat_category, vat_rate]
+locales:
+  de:
+    observation: >-
+      Die Steuerkategorie {vat_category} ist mit einem Steuersatz von
+      {vat_rate, percent} kombiniert.
+    legal_basis: >-
+      Die Kategorien AE, E, K, G, Z und O des Codeverzeichnisses UNTDID 5305
+      bezeichnen Umsätze ohne Steuerausweis. Der zugehörige Steuersatz beträgt
+      null.
+    next_step: >-
+      Der Rechnungssteller kann klären, welche der beiden Angaben gemeint war.
+  tr:
+    observation: >-
+      {vat_category} vergi kategorisi {vat_rate, percent} oranıyla birlikte
+      kullanılmış.
+    legal_basis: >-
+      UNTDID 5305 kod listesindeki AE, E, K, G, Z ve O kategorileri KDV
+      gösterilmeyen işlemleri belirtir. Bunlara karşılık gelen oran sıfırdır.
+    next_step: >-
+      Hangi bilginin kastedildiği faturayı kesen tarafla netleştirilebilir.

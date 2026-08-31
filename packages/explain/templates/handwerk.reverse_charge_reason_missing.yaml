@@ -1,0 +1,31 @@
+key: handwerk.reverse_charge_reason_missing
+version: 1
+approved: false
+required_params: [tax_category]
+locales:
+  de:
+    observation: >-
+      Diese Rechnung verwendet die Steuerkategorie {tax_category}
+      (Steuerschuldnerschaft des Leistungsempfängers), enthält aber weder einen
+      Hinweistext in BT-120 noch einen Befreiungsgrund-Code in BT-121.
+    legal_basis: >-
+      Bei einer Umkehr der Steuerschuld nach § 13b UStG verlangt
+      § 14 Abs. 4 Satz 1 Nr. 10 UStG die Angabe „Steuerschuldnerschaft des
+      Leistungsempfängers“ auf der Rechnung. EN 16931 bildet diese Angabe in
+      BT-120 oder BT-121 ab.
+    next_step: >-
+      Eine korrigierte E-Rechnung mit dem Hinweistext lässt sich beim
+      Rechnungssteller anfordern.
+  tr:
+    observation: >-
+      Bu fatura {tax_category} vergi kategorisini (vergi borcunun alıcıya
+      geçmesi) kullanıyor, ancak BT-120 alanında açıklama metni ve BT-121
+      alanında muafiyet kodu yok.
+    legal_basis: >-
+      § 13b UStG uyarınca vergi borcu alıcıya geçtiğinde, § 14 Abs. 4 Satz 1
+      Nr. 10 UStG faturada „Steuerschuldnerschaft des Leistungsempfängers“
+      ibaresini şart koşar. EN 16931 bu bilgiyi BT-120 veya BT-121 alanında
+      taşır.
+    next_step: >-
+      Faturayı kesen taraftan, ibareyi içeren düzeltilmiş bir e-fatura
+      istenebilir.

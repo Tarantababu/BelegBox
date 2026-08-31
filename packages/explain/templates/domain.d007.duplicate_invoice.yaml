@@ -1,0 +1,26 @@
+key: domain.d007.duplicate_invoice
+version: 1
+approved: false
+required_params: [invoice_number, supplier_vat_id]
+locales:
+  de:
+    observation: >-
+      Die Rechnungsnummer {invoice_number} des Lieferanten
+      {supplier_vat_id} liegt bereits in deinem Archiv.
+    legal_basis: >-
+      § 14 Abs. 4 Satz 1 Nr. 4 UStG verlangt eine einmalig vergebene
+      Rechnungsnummer. Wer einen Steuerbetrag doppelt ausweist, schuldet ihn
+      nach § 14c Abs. 1 UStG.
+    next_step: >-
+      Der Vergleich beider Belege zeigt, ob es sich um eine Dublette oder um
+      eine Korrekturrechnung handelt.
+  tr:
+    observation: >-
+      {supplier_vat_id} tedarikçisine ait {invoice_number} fatura numarası
+      arşivinde zaten var.
+    legal_basis: >-
+      § 14 Abs. 4 Satz 1 Nr. 4 UStG bir kez verilmiş fatura numarası ister. Bir
+      vergi tutarını iki kez gösteren, § 14c Abs. 1 UStG uyarınca onu borçlanır.
+    next_step: >-
+      İki belgeyi karşılaştırmak, mükerrer mi yoksa düzeltme faturası mı
+      olduğunu gösterir.
