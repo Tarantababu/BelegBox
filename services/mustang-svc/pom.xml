@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>de.belegbox</groupId>
+  <artifactId>mustang-svc</artifactId>
+  <version>0.0.0-sprint0</version>
+  <packaging>jar</packaging>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <!--
+    Sprint 0 deliberately has zero third-party dependencies: the HTTP layer is
+    the JDK's com.sun.net.httpserver and L1 is javax.xml.validation, so the
+    service builds and boots before any version is pinned.
+
+    F1 week 2-3 adds, with versions resolved from versions.properties:
+      de.kosit:validationtool          (L2 Schematron, the official validator)
+      org.mustangproject:library       (ZUGFeRD/CII parse + generate)
+  -->
+  <dependencies/>
+
+  <build>
+    <finalName>mustang-svc</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${project.basedir}</directory>
+        <includes>
+          <include>versions.properties</include>
+        </includes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>de.belegbox.mustang.App</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

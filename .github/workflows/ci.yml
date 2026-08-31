@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - run: pnpm typecheck
+
+      # Snapshots are committed. A KoSIT configuration bump or a rule change
+      # then shows up here as an explicit diff of which verdicts moved (R-2).
+      - run: pnpm test
+
+      # Sprint 0 exit criterion. Runs offline: detection, profile legality and
+      # D-001 without the JVM. The form verdict reports "unknown", never a guess.
+      - name: Validate the corpus
+        run: pnpm validate --offline corpus/*.xml
+
+  jvm:
+    name: mustang-svc
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/mustang-svc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - run: mvn -B package
+
+      # The service must boot and answer, and its log must name the pinned
+      # validator configuration - that pin is what makes a verdict reproducible.
+      - name: Boot and probe
+        run: |
+          java -jar target/mustang-svc.jar &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8081/health && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8081/health | tee /dev/stderr | grep -q validatorConfigVersion
+
+      - name: Reject an oversized body
+        run: |
+          head -c 34000000 /dev/zero > /tmp/big.xml
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            --data-binary @/tmp/big.xml http://localhost:8081/validate)
+          test "$code" = "413"

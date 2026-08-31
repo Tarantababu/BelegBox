@@ -1,0 +1,92 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`corpus snapshots > every fixture produces a stable offline result 1`] = `
+{
+  "broken-br-co-15-01.xml": {
+    "codes": [],
+    "format": "xrechnung_ubl",
+    "legalClass": "einvoice",
+    "profile": "XRechnung 3.0",
+    "status": "pending",
+    "syntax": "ubl",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "gastro-beverage-7pct-01.xml": {
+    "codes": [],
+    "format": "xrechnung_ubl",
+    "legalClass": "einvoice",
+    "profile": "XRechnung 3.0",
+    "status": "pending",
+    "syntax": "ubl",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "missing-exemption-reason-ae-01.xml": {
+    "codes": [],
+    "format": "xrechnung_ubl",
+    "legalClass": "einvoice",
+    "profile": "XRechnung 3.0",
+    "status": "pending",
+    "syntax": "ubl",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "xrechnung-cii-valid-01.xml": {
+    "codes": [],
+    "format": "xrechnung_cii",
+    "legalClass": "einvoice",
+    "profile": "XRechnung 3.0",
+    "status": "pending",
+    "syntax": "cii",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "xrechnung-ubl-valid-01.xml": {
+    "codes": [],
+    "format": "xrechnung_ubl",
+    "legalClass": "einvoice",
+    "profile": "XRechnung 3.0",
+    "status": "pending",
+    "syntax": "ubl",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "zugferd-en16931-01.xml": {
+    "codes": [],
+    "format": "zugferd",
+    "legalClass": "einvoice",
+    "profile": "EN 16931 (COMFORT)",
+    "status": "pending",
+    "syntax": "cii",
+    "verdict": {
+      "content": "pass",
+      "form": "unknown",
+    },
+  },
+  "zugferd-minimum-01.xml": {
+    "codes": [
+      "D-001",
+    ],
+    "format": "zugferd",
+    "legalClass": "not_einvoice",
+    "profile": "ZUGFeRD 2.x / Factur-X MINIMUM",
+    "status": "not_einvoice",
+    "syntax": "cii",
+    "verdict": {
+      "content": "n_a",
+      "form": "n_a",
+    },
+  },
+}
+`;

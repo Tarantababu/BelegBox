@@ -1,0 +1,63 @@
+name: belegbox
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: belegbox
+      POSTGRES_PASSWORD: belegbox
+      POSTGRES_DB: belegbox
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./packages/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U belegbox"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: belegbox
+      MINIO_ROOT_PASSWORD: belegbox-dev-secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Creates the raw-document bucket WITH object lock enabled. Locking can only
+  # be turned on at creation time, so this is not an afterthought step.
+  # GOVERNANCE here; production uses COMPLIANCE, which is irreversible.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 belegbox belegbox-dev-secret &&
+      mc mb --ignore-existing --with-lock local/belegbox-raw-dev &&
+      mc retention set --default GOVERNANCE 30d local/belegbox-raw-dev &&
+      echo 'bucket ready (GOVERNANCE, 30d - dev only)'
+      "
+
+  mustang-svc:
+    build:
+      context: ./services/mustang-svc
+    ports: ["8081:8081"]
+    environment:
+      PORT: "8081"
+      SCHEMA_DIR: /app/schemas
+    volumes:
+      # Vendored XSDs, mounted rather than baked so the pin is visible here.
+      - ./services/mustang-svc/schemas:/app/schemas:ro
+
+volumes:
+  pgdata:
+  miniodata:
