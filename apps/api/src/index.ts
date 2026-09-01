@@ -1,4 +1,5 @@
 import { loadTemplateDir } from "@belegbox/explain";
+import { ConsoleEmailSender, PostmarkEmailSender, type EmailSender } from "@belegbox/mail";
 import { Db, assertRlsEnforced, createPool } from "@belegbox/db";
 import { buildApi } from "./server.js";
 
@@ -18,6 +19,15 @@ await assertRlsEnforced(db);
 
 const explain = await loadTemplateDir();
 
+// Postmark when configured, otherwise a sender that prints and says so. A
+// silent no-op is how a reset flow reaches staging looking like it works.
+const mail: EmailSender = process.env["POSTMARK_TOKEN"]
+  ? new PostmarkEmailSender({
+      token: process.env["POSTMARK_TOKEN"] as string,
+      from: process.env["MAIL_FROM"] ?? "no-reply@belegbox.de",
+    })
+  : new ConsoleEmailSender();
+
 const app = await buildApi({
   db,
   explain,
@@ -34,6 +44,11 @@ const app = await buildApi({
   // Cookies are Secure unless explicitly told otherwise, which only local http
   // needs.
   secureCookies: process.env["INSECURE_COOKIES"] !== "true",
+  mail,
+  webUrl: process.env["WEB_URL"] ?? "http://localhost:3000",
+  // Never in production: the link is the credential.
+  revealResetLink:
+    process.env["NODE_ENV"] !== "production" && process.env["REVEAL_RESET_LINK"] === "true",
 });
 
 await app.listen({ port: Number(process.env["PORT"] ?? 8082), host: "0.0.0.0" });

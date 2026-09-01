@@ -17,6 +17,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* The reset link is a credential in a URL. Without this it rides along
+            in the Referer header of every font and stylesheet request. */}
+        <meta name="referrer" content="no-referrer" />
       </head>
       <body>{children}</body>
     </html>

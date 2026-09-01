@@ -44,6 +44,9 @@ importers:
       '@belegbox/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
+      '@belegbox/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
       '@belegbox/rules-engine':
         specifier: workspace:*
         version: link:../../packages/rules-engine
@@ -152,6 +155,8 @@ importers:
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../core-invoice
+
+  packages/mail: {}
 
   packages/rules-engine:
     dependencies:

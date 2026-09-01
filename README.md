@@ -49,6 +49,7 @@ roadmap does not mean its turn has come.
 | `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
 | `packages/explain` | **Week 4.** Versioned templates, DE + TR, StBerG lint |
 | `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
+| `packages/mail` | **Wired.** Outbound mail port, Postmark and console senders |
 | `apps/web` | **Week 4-5.** Next.js. M-01 setup, M-02 inbox, M-03 detail |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
@@ -256,6 +257,28 @@ window is already spent.
 
 Lookups go through `SECURITY DEFINER` functions, because authentication is the
 step that establishes the tenant scope — there is no scope to look it up under.
+
+### Password reset
+
+The path from "controls an inbox" to "controls the account", so it has to keep
+every property the login flow establishes:
+
+- **One answer for every address.** Requesting a reset returns the same body and
+  comparable timing whether or not the account exists. This endpoint is
+  unauthenticated and cheap to script, so a difference here enumerates the
+  customer list faster than login ever could.
+- **The second factor still applies.** Any account with a TOTP secret — or a
+  role that requires one — must present a code. Otherwise reset *is* the MFA
+  bypass, and control of a mailbox would be enough to take an owner account.
+- **One link, once.** The token is claimed atomically, a new request invalidates
+  the previous link, and unknown, expired and already-used are one answer.
+- **A wrong code does not spend the link.** The token is read before it is
+  claimed, so six mistyped digits do not cost the user their one chance.
+- **Every session is revoked.** People reset passwords when they believe someone
+  else has their account; leaving that person signed in would defeat it.
+
+The link is a credential in a URL, so the layout sets `referrer: no-referrer` —
+otherwise it rides along in the `Referer` of every font request the page makes.
 
 ## Running the whole thing
 

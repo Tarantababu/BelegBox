@@ -188,3 +188,31 @@ export async function createTenantAccount(body: {
   }
   return (await response.json()) as CreatedAccount;
 }
+
+export async function requestPasswordReset(email: string): Promise<{ ok: boolean; link?: string }> {
+  const response = await fetch(`${API_URL}/v1/auth/password-reset/request`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+    cache: "no-store",
+  });
+  if (!response.ok) return { ok: false };
+  const body = (await response.json()) as { link?: string };
+  return { ok: true, ...(body.link ? { link: body.link } : {}) };
+}
+
+export async function confirmPasswordReset(body: {
+  token: string;
+  password: string;
+  totpCode?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const response = await fetch(`${API_URL}/v1/auth/password-reset/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (response.ok) return { ok: true };
+  const detail = (await response.json().catch(() => ({}))) as { error?: string };
+  return { ok: false, error: detail.error ?? "invalid_or_expired_token" };
+}

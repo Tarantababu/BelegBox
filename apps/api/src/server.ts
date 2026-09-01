@@ -4,6 +4,8 @@ import { proofForDocument, type Db } from "@belegbox/db";
 import type { Registry } from "@belegbox/explain";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
+import type { EmailSender } from "@belegbox/mail";
+import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
 import { registerRoutes } from "./routes.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,6 +26,11 @@ export interface ApiOptions {
   inboxDomain?: string;
   /** Origins allowed to call the API from a browser. */
   corsOrigins?: string[];
+  /** Delivers password reset mail. Absent means reset is unavailable. */
+  mail?: EmailSender;
+  webUrl?: string;
+  /** Development only: return the reset link in the response. */
+  revealResetLink?: boolean;
 }
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
@@ -44,6 +51,21 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   app.post("/v1/auth/login", (request, reply) =>
     handleLogin({ db: opts.db, secureCookies: opts.secureCookies ?? true }, request, reply),
   );
+
+  if (opts.mail) {
+    const resetDeps = {
+      db: opts.db,
+      mail: opts.mail,
+      webUrl: opts.webUrl ?? "http://localhost:3000",
+      ...(opts.revealResetLink ? { revealLink: true } : {}),
+    };
+    app.post("/v1/auth/password-reset/request", (request, reply) =>
+      handleResetRequest(resetDeps, request, reply),
+    );
+    app.post("/v1/auth/password-reset/confirm", (request, reply) =>
+      handleResetConfirm(resetDeps, request, reply),
+    );
+  }
 
   app.post("/v1/auth/logout", async (request, reply) =>
     handleLogout(opts.db, await authenticate(request), request, reply),

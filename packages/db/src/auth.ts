@@ -258,3 +258,105 @@ export async function consumeTotp(
   );
   return rows[0]?.consume_totp === true;
 }
+
+export interface ResetClaim {
+  userId: string;
+  tenantId: string;
+  role: string;
+  totpSecret: string | null;
+  mfaEnabled: boolean;
+}
+
+export async function issuePasswordReset(
+  client: PoolClient,
+  userId: string,
+  tokenHash: string,
+  expiresAt: Date,
+  ip?: string | null,
+): Promise<string> {
+  const { rows } = await client.query<{ issue_password_reset: string }>(
+    "SELECT issue_password_reset($1, $2, $3, $4)",
+    [userId, tokenHash, expiresAt.toISOString(), ip ?? null],
+  );
+  return rows[0]?.issue_password_reset as string;
+}
+
+/**
+ * Reads a reset token without spending it.
+ *
+ * The second factor is verified before the token is claimed, so a mistyped code
+ * does not cost the user their one link.
+ */
+export async function findPasswordReset(
+  client: PoolClient,
+  tokenHash: string,
+): Promise<ResetClaim | undefined> {
+  const { rows } = await client.query<{
+    user_id: string;
+    tenant_id: string;
+    role: string;
+    totp_secret: string | null;
+    mfa_enabled: boolean;
+  }>("SELECT * FROM find_password_reset($1)", [tokenHash]);
+
+  const row = rows[0];
+  return row
+    ? {
+        userId: row.user_id,
+        tenantId: row.tenant_id,
+        role: row.role,
+        totpSecret: row.totp_secret,
+        mfaEnabled: row.mfa_enabled,
+      }
+    : undefined;
+}
+
+/**
+ * Claims a reset token, marking it used in the same statement.
+ *
+ * Returns nothing for a token that is unknown, expired or already spent - three
+ * cases the caller must not be able to tell apart.
+ */
+export async function claimPasswordReset(
+  client: PoolClient,
+  tokenHash: string,
+): Promise<ResetClaim | undefined> {
+  const { rows } = await client.query<{
+    user_id: string;
+    tenant_id: string;
+    role: string;
+    totp_secret: string | null;
+    mfa_enabled: boolean;
+  }>("SELECT * FROM claim_password_reset($1)", [tokenHash]);
+
+  const row = rows[0];
+  return row
+    ? {
+        userId: row.user_id,
+        tenantId: row.tenant_id,
+        role: row.role,
+        totpSecret: row.totp_secret,
+        mfaEnabled: row.mfa_enabled,
+      }
+    : undefined;
+}
+
+export async function applyPasswordReset(
+  client: PoolClient,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await client.query("SELECT apply_password_reset($1, $2)", [userId, passwordHash]);
+}
+
+/** Every session, because a reset is what someone does when they suspect one is not theirs. */
+export async function revokeSessionsForUser(
+  client: PoolClient,
+  userId: string,
+): Promise<number> {
+  const { rows } = await client.query<{ revoke_sessions_for_user: number }>(
+    "SELECT revoke_sessions_for_user($1)",
+    [userId],
+  );
+  return Number(rows[0]?.revoke_sessions_for_user ?? 0);
+}
