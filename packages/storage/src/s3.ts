@@ -32,6 +32,24 @@ function isConflict(err: unknown): boolean {
   return code === "PreconditionFailed" || status === 412;
 }
 
+/**
+ * The store does not implement conditional writes.
+ *
+ * `If-None-Match: *` on a PUT is a recent S3 addition, and most S3-compatible
+ * stores have not caught up - Backblaze B2 answers "A header you provided
+ * implies functionality that is not implemented". Detected once and remembered,
+ * rather than paying a failed round trip on every write.
+ */
+function isConditionalWriteUnsupported(err: unknown): boolean {
+  const message = (err as Error)?.message ?? "";
+  const code = (err as { name?: string; Code?: string })?.name
+    ?? (err as { Code?: string })?.Code;
+  return (
+    code === "NotImplemented" ||
+    /not implemented/i.test(message)
+  );
+}
+
 function isNotFound(err: unknown): boolean {
   const code = (err as { name?: string })?.name;
   const status = (err as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
@@ -57,6 +75,12 @@ export class S3ObjectStore implements ObjectStore {
   private readonly client: S3Client;
   private readonly bucket: string;
 
+  /**
+   * Whether the store honours `If-None-Match: *`. Assumed until proven
+   * otherwise, then remembered for the life of the process.
+   */
+  private conditionalWrites = true;
+
   constructor(options: S3ObjectStoreOptions) {
     this.bucket = options.bucket;
     this.client =
@@ -72,6 +96,38 @@ export class S3ObjectStore implements ObjectStore {
   async put(input: PutObjectInput): Promise<PutObjectResult> {
     const checksum = Buffer.from(input.sha256, "hex").toString("base64");
 
+    // Asking the store to refuse an overwrite is better than checking first and
+    // hoping, so it is tried until a store says it cannot.
+    if (this.conditionalWrites) {
+      try {
+        return await this.putOnce(input, checksum, true);
+      } catch (err) {
+        if (!isConditionalWriteUnsupported(err)) throw err;
+        this.conditionalWrites = false;
+      }
+    }
+
+    // Without it, existence is checked first. That is a weaker guarantee - two
+    // simultaneous writes of the same key could both proceed - but the key is
+    // the digest of the bytes, so both would write exactly the same object, and
+    // where Object Lock is in force the second is refused by the lock anyway.
+    const existing = await this.head(input.key);
+    if (existing) {
+      return {
+        key: input.key,
+        alreadyExisted: true,
+        ...(existing.versionId ? { versionId: existing.versionId } : {}),
+        ...(existing.retainUntil ? { retainUntil: existing.retainUntil } : {}),
+      };
+    }
+    return this.putOnce(input, checksum, false);
+  }
+
+  private async putOnce(
+    input: PutObjectInput,
+    checksum: string,
+    conditional: boolean,
+  ): Promise<PutObjectResult> {
     try {
       const response = await this.client.send(
         new PutObjectCommand({
@@ -86,7 +142,7 @@ export class S3ObjectStore implements ObjectStore {
                 ObjectLockRetainUntilDate: input.retention.retainUntil,
               }
             : {}),
-          IfNoneMatch: "*",
+          ...(conditional ? { IfNoneMatch: "*" } : {}),
         }),
       );
 

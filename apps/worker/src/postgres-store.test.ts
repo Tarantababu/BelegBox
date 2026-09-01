@@ -15,7 +15,8 @@ import { PostgresDocumentStore } from "./postgres-store.js";
  * The whole receiving path against real infrastructure: mail in, bytes to the
  * object store, metadata and verdicts into PostgreSQL under the right tenant.
  *
- * Needs a database. Uses MinIO for the archive when S3_TEST_ENDPOINT is set and
+ * Needs a database. Uses whatever S3-compatible store S3_TEST_ENDPOINT points
+ * at - MinIO locally - when it is set, and
  * the filesystem otherwise, and the real validator when MUSTANG_SVC_URL is set.
  */
 const ADMIN_URL = process.env["DATABASE_URL"];
@@ -39,7 +40,14 @@ async function objectStore(): Promise<ObjectStore> {
   return new S3ObjectStore({
     bucket: process.env["S3_TEST_BUCKET"] ?? "belegbox-raw-dev",
     endpoint,
-    credentials: { accessKeyId: "belegbox", secretAccessKey: "belegbox-dev-secret" },
+    // Read from the environment like the endpoint and bucket already are.
+    // Hardcoding the MinIO pair meant pointing S3_TEST_ENDPOINT at any other
+    // S3-compatible store failed with "Malformed Access Key Id", which reads
+    // like a broken store rather than a test that ignored the credentials.
+    credentials: {
+      accessKeyId: process.env["S3_TEST_ACCESS_KEY"] ?? "belegbox",
+      secretAccessKey: process.env["S3_TEST_SECRET_KEY"] ?? "belegbox-dev-secret",
+    },
     forcePathStyle: true,
   });
 }
