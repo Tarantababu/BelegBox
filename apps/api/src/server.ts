@@ -74,7 +74,48 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     await app.register(cors, { origin: opts.corsOrigins, credentials: true });
   }
 
+  /**
+   * Liveness. The process is running.
+   *
+   * Deliberately does not touch the database. A liveness probe that fails
+   * during a database outage restarts every replica, which turns a recoverable
+   * outage into a crash loop that also loses the logs explaining it.
+   */
   app.get("/health", async () => ({ status: "ok" }));
+
+  /**
+   * Readiness. This instance can actually serve a request.
+   *
+   * Checked rather than assumed: a load balancer given a health endpoint that
+   * answers 200 unconditionally keeps sending traffic to an instance whose
+   * database is gone. Point the platform's health check here.
+   */
+  app.get("/health/ready", async (_request, reply) => {
+    const started = Date.now();
+    try {
+      await opts.db.withAdmin((client) => client.query("SELECT 1"));
+    } catch (cause) {
+      return reply.code(503).send({
+        status: "unavailable",
+        database: "unreachable",
+        detail: (cause as Error).message,
+      });
+    }
+
+    return reply.send({
+      status: "ok",
+      database: "ok",
+      databaseLatencyMs: Date.now() - started,
+      // Informational. The form verdict degrades to "unknown" without the
+      // sidecar rather than failing, so it does not gate readiness.
+      features: {
+        explanations: Boolean(opts.explain),
+        belegBundle: Boolean(opts.objectStore),
+        verfahrensdokumentation: Boolean(opts.storage),
+        passwordReset: Boolean(opts.mail),
+      },
+    });
+  });
 
   app.post("/v1/auth/login", (request, reply) =>
     handleLogin({ db: opts.db, secureCookies: opts.secureCookies ?? true }, request, reply),
@@ -171,6 +212,12 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     });
   });
 
+  // Only the document routes need the template registry - they render
+  // explanations. Everything below was once nested inside this branch, which
+  // meant a missing registry silently took the DATEV export, the archive
+  // search, the Beleg bundle, payments and the Verfahrensdokumentation with it
+  // while /health still answered 200. Each dependency now gates only what
+  // actually needs it.
   if (opts.explain) {
     registerRoutes(app, {
       db: opts.db,
@@ -181,21 +228,25 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
         : {}),
       ...(opts.inboxDomain ? { inboxDomain: opts.inboxDomain } : {}),
     });
-    registerPaymentRoutes(app, { db: opts.db, resolveTenant });
-    registerDatevRoutes(app, { db: opts.db, resolveTenant });
-    registerSearchRoutes(app, { db: opts.db, resolveTenant, statuses: STATUSES });
-    if (opts.objectStore) {
-      registerBelegeRoutes(app, { db: opts.db, storage: opts.objectStore, resolveTenant });
-    }
-    if (opts.storage) {
-      registerVerfahrensdokuRoutes(app, {
-        db: opts.db,
-        mustang: new MustangClient(),
-        storage: opts.storage,
-        resolveTenant,
-        resolveUser,
-      });
-    }
+  }
+
+  registerPaymentRoutes(app, { db: opts.db, resolveTenant });
+  registerDatevRoutes(app, { db: opts.db, resolveTenant });
+  registerSearchRoutes(app, { db: opts.db, resolveTenant, statuses: STATUSES });
+
+  // These two genuinely cannot run without their dependency: one reads
+  // archived objects, the other states the storage configuration as fact.
+  if (opts.objectStore) {
+    registerBelegeRoutes(app, { db: opts.db, storage: opts.objectStore, resolveTenant });
+  }
+  if (opts.storage) {
+    registerVerfahrensdokuRoutes(app, {
+      db: opts.db,
+      mustang: new MustangClient(),
+      storage: opts.storage,
+      resolveTenant,
+      resolveUser,
+    });
   }
 
   return app;

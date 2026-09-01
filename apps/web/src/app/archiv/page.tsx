@@ -8,8 +8,11 @@ export const dynamic = "force-dynamic";
 
 const PAGE = 25;
 
-function Row({ doc }: { doc: DocumentSummary }) {
+function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
   const meta = STATUS_META[doc.status];
+  // The same label the inbox shows. Hardcoding German here gave a Turkish
+  // tenant "Temiz" on one screen and "Sachfehler" on the next.
+  const label = locale === "tr" ? meta.tr : meta.de;
   return (
     <Link className="row" href={`/documents/${doc.id}`}>
       <span className={`spine ${meta.spine}`} />
@@ -22,7 +25,7 @@ function Row({ doc }: { doc: DocumentSummary }) {
       </span>
       <span className="rside">
         <span className="amt">{money(doc.totalGross)}</span>
-        <span className={`tag ${meta.spine}`}>{meta.de}</span>
+        <span className={`tag ${meta.spine}`}>{label}</span>
       </span>
     </Link>
   );
@@ -167,7 +170,7 @@ export default async function ArchivePage({
           </div>
 
           {result.documents.map((doc) => (
-            <Row key={doc.id} doc={doc} />
+            <Row key={doc.id} doc={doc} locale={tenant.locale} />
           ))}
 
           {(offset > 0 || result.documents.length === PAGE) && (

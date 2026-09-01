@@ -8,7 +8,17 @@ if (!url) {
   process.exit(2);
 }
 
-const db = new Db(createPool(url, 2));
+const db = new Db(
+  createPool(url, {
+    max: 2,
+    applicationName: "belegbox-migrate",
+    // No ceiling. Building an index on a large table legitimately outlives the
+    // request-path timeout, and a migration killed halfway is worse than a slow
+    // one - especially one that has already written its schema_migrations row.
+    statementTimeoutMs: 0,
+    connectionTimeoutMs: 30_000,
+  }),
+);
 try {
   const { applied, skipped } = await db.withAdmin((client) => migrate(client));
   for (const name of skipped) console.log(`  = ${name}`);

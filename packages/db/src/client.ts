@@ -17,8 +17,75 @@ export interface TenantClient extends Queryable {
   readonly tenantId: string;
 }
 
-export function createPool(connectionString: string, max = 10): Pool {
-  return new PgPool({ connectionString, max });
+export interface PoolOptions {
+  /** Connections this process may hold. See the note on sizing below. */
+  max?: number;
+  /**
+   * Kills a query that has run away rather than letting it pin a connection.
+   *
+   * Every statement in this codebase is a keyed lookup or a bounded scan, so
+   * anything near this ceiling is a bug or a missing index. Raised for
+   * migrations, which legitimately take longer to build an index.
+   */
+  statementTimeoutMs?: number;
+  /** Shows up in pg_stat_activity, so a stuck connection can be attributed. */
+  applicationName?: string;
+  idleTimeoutMs?: number;
+  connectionTimeoutMs?: number;
+}
+
+/**
+ * Whether this connection needs TLS.
+ *
+ * Anything that is not loopback is assumed to be a managed database reached
+ * over a network, and gets TLS. A connection string that already says
+ * `sslmode=` is left alone - the operator has been explicit and overriding
+ * them would be worse than obeying.
+ *
+ * Certificate verification stays on. Providers that need their own CA should
+ * pass `sslmode=verify-full` with `sslrootcert`, not have verification quietly
+ * disabled here - `rejectUnauthorized: false` accepts any certificate, which
+ * is indistinguishable from having no TLS against an active attacker.
+ */
+function needsTls(connectionString: string): boolean {
+  if (/[?&]sslmode=/i.test(connectionString)) return false;
+  try {
+    const { hostname } = new URL(connectionString);
+    return !["localhost", "127.0.0.1", "::1", ""].includes(hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Builds the pool.
+ *
+ * Sizing: `max` is per process, and Postgres counts connections across all of
+ * them. A managed instance with a 100-connection ceiling and four API replicas
+ * at 10 each leaves little room for migrations or a console session, so this
+ * stays small by default and is raised deliberately. Behind PgBouncer in
+ * transaction mode the number matters less - which is the arrangement
+ * `withTenant` is already written for, since it scopes the tenant
+ * transaction-locally rather than on the session.
+ */
+export function createPool(connectionString: string, options: number | PoolOptions = {}): Pool {
+  const opts: PoolOptions = typeof options === "number" ? { max: options } : options;
+
+  return new PgPool({
+    connectionString,
+    max: opts.max ?? 10,
+    // A connection that cannot be established has to fail rather than hang: a
+    // request waiting forever on a pool checkout looks like a slow database and
+    // is actually a dead one.
+    connectionTimeoutMillis: opts.connectionTimeoutMs ?? 10_000,
+    // Managed databases and poolers drop idle connections on their own; letting
+    // them go first avoids handing out a socket the other end has closed.
+    idleTimeoutMillis: opts.idleTimeoutMs ?? 30_000,
+    keepAlive: true,
+    application_name: opts.applicationName ?? "belegbox",
+    statement_timeout: opts.statementTimeoutMs ?? 30_000,
+    ...(needsTls(connectionString) ? { ssl: { rejectUnauthorized: true } } : {}),
+  });
 }
 
 export class Db {

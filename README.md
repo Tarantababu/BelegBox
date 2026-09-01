@@ -469,6 +469,23 @@ every property the login flow establishes:
 The link is a credential in a URL, so the layout sets `referrer: no-referrer` —
 otherwise it rides along in the `Referer` of every font request the page makes.
 
+## Deploying
+
+Five pieces, and they do not all go to one platform. `apps/web` is a Next.js
+app with no workspace dependencies and deploys to Vercel; `apps/api` and
+`apps/worker` are long-running processes with a PostgreSQL pool; and
+`services/mustang-svc` is a **JVM** running the official KoSIT validator, which
+Vercel cannot host under any configuration. Without it the form verdict
+degrades to `unknown` and says so, which is honest but is half the product.
+
+Point the platform health check at `/health/ready`, not `/health`: the latter is
+liveness and deliberately does not touch the database, because a liveness probe
+that fails during an outage restarts every replica and turns a recoverable
+outage into a crash loop.
+
+Full sequence, including the database role the API must *not* connect as, in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Running the whole thing
 
 ```bash

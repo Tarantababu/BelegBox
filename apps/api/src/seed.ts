@@ -106,13 +106,39 @@ try {
   let documents = 0;
   let findings = 0;
 
+  // Asked once rather than per document: seven failed connections take seven
+  // timeouts, and the answer cannot change mid-run.
+  const validatorUp = await fetch(
+    `${process.env["MUSTANG_SVC_URL"] ?? "http://localhost:8081"}/health`,
+    { signal: AbortSignal.timeout(3000) },
+  )
+    .then((res) => res.ok)
+    .catch(() => false);
+  console.log(
+    validatorUp
+      ? "validator  reachable - form verdicts are real"
+      : "validator  unreachable - form verdicts stay \"unknown\"",
+  );
+
+  // Days that hold at least one document, so the seal step knows what to close.
+  const archivedDays = new Set<string>();
+
   for (const [index, file] of files.entries()) {
     const bytes = await readFile(join(corpusDir, file));
+    // One document per day, most recent first, so the archive chain spans
+    // several days rather than collapsing into one.
+    const receivedAt = new Date(Date.now() - index * 24 * 36e5);
 
-    // skipL1L2: mustang-svc needs a JVM. The form verdict stays "unknown"
-    // rather than being invented, which is exactly what the screen must show
-    // when the validator is unavailable.
-    const result = await validateDocument({ filename: file, bytes }, { skipL1L2: true, ruleSet });
+    // The form verdict comes from the real validator when the sidecar is up.
+    // It used to be skipped unconditionally, which left every seeded document
+    // showing "unknown" - so the dual verdict, the whole point of the product,
+    // could never be seen working in development. When the sidecar is down the
+    // verdict still degrades to "unknown" rather than being invented, which is
+    // what the screen must show.
+    const result = await validateDocument(
+      { filename: file, bytes },
+      { skipL1L2: !validatorUp, ruleSet },
+    );
 
     let invoice;
     try {
@@ -148,7 +174,7 @@ try {
         issuedAt: invoice?.issueDate ?? null,
         dueAt: invoice?.dueDate ?? null,
         // Spread across recent days so the inbox has a plausible shape.
-        receivedAt: new Date(Date.now() - index * 36e5 * 6).toISOString(),
+        receivedAt: receivedAt.toISOString(),
         supplierName: invoice?.seller.name ?? null,
         supplierVatId: invoice?.seller.vatId ?? null,
         invoiceNumber: invoice?.invoiceNumber ?? null,
@@ -177,15 +203,22 @@ try {
         })),
       );
 
-      // Archive and seal one older day, so the proof endpoint has something to
-      // prove and the chain is not empty on a fresh database.
-      if (index >= files.length - 2) {
-        await archiveDocument(tx, id, { archivedAt: new Date("2026-08-01T09:00:00Z") });
-      }
+      // Every document is archived, because in production every document is.
+      // Archiving only a couple left most of them answering 404 on the proof
+      // endpoint, which looks like a broken archive rather than a partial seed.
+      await archiveDocument(tx, id, { archivedAt: receivedAt });
+      archivedDays.add(receivedAt.toISOString().slice(0, 10));
     });
   }
 
-  await db.withTenant(tenantId, (tx) => sealArchiveDay(tx, "2026-08-01"));
+  // Every day but the most recent. Today stays open, which is the archive's
+  // real steady state: a sealed history behind a day still accepting
+  // documents. Sealing today would refuse the next document to arrive.
+  const today = new Date().toISOString().slice(0, 10);
+  const toSeal = [...archivedDays].filter((day) => day !== today).sort();
+  for (const day of toSeal) {
+    await db.withTenant(tenantId, (tx) => sealArchiveDay(tx, day));
+  }
 
   console.log(`tenant     ${tenantId}`);
   console.log(`inbox      ${created.inboxAddress}`);

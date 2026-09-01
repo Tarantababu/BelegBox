@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+.data
+.git
+.github
+docs
+corpus
+**/*.test.ts
+services/mustang-svc/target
