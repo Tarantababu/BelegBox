@@ -13,3 +13,6 @@ corpus/vendor/
 
 # Local development state: seeded objects and ingest working files.
 .data/
+
+# Vercel project link (ids, not secrets - but local state).
+.vercel

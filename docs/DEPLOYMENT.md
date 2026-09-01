@@ -160,7 +160,16 @@ database is unreachable and reports which features the instance can serve.
 
 ### 5. Web
 
-On Vercel: **Root Directory must be `apps/web`.** Framework Next.js.
+On Vercel: **Root Directory must be `apps/web`.** Framework Next.js. Deploy from
+the connected git repository, not by uploading `apps/web` — the CLI would send
+that directory alone, and `pnpm install --frozen-lockfile` then fails because
+the lockfile and `pnpm-workspace.yaml` live at the repository root. Vercel
+clones the whole repo and changes into the root directory, which is what makes
+the workspace resolvable.
+
+The root directory is not settable from the CLI; it is a project setting (or a
+`PATCH` to `/v9/projects/<id>`). Left at `.`, the build runs against the
+monorepo root and produces no Next.js output.
 
 Pointing a Vercel project at `apps/api` or `apps/worker` does not fail in a way
 that says so. The Turbo build succeeds — `tsc` compiles to `dist/` and every
