@@ -23,6 +23,14 @@ export type LoginOutcome =
       activatedMfa?: boolean;
       /** The TOTP step that matched. The caller must claim it exactly once. */
       totpCounter?: number;
+      /**
+       * A recovery code was spent instead of a code from the authenticator.
+       *
+       * The caller should tell the user how many are left and push them towards
+       * re-enrolling: someone signing in this way has lost their authenticator,
+       * and silence here ends with the last code spent and no way in.
+       */
+      usedRecoveryCode?: boolean;
     }
   | { ok: false; reason: LoginFailure; userId?: string };
 
@@ -36,8 +44,17 @@ export type LoginFailure =
 export interface LoginInput {
   password: string;
   totpCode?: string | undefined;
+  /**
+   * Offered instead of a code when the authenticator is gone.
+   *
+   * Single-use, and spent through `consumeRecoveryCode` - which is the port
+   * that actually decides, since only the database knows whether a code is
+   * still unused.
+   */
+  recoveryCode?: string | undefined;
   now?: Date;
   consumeTotp?: (counter: number) => boolean;
+  consumeRecoveryCode?: (code: string) => Promise<boolean>;
 }
 
 /**
@@ -80,6 +97,25 @@ export async function attemptLogin(
   // a wrong one until the attacker already had the password.
   if (candidate.lockedUntil && candidate.lockedUntil > now) {
     return { ok: false, reason: "locked", userId: candidate.userId };
+  }
+
+  // A recovery code stands in for the authenticator, and is checked before the
+  // TOTP branch so a user whose phone is gone is not first told their code is
+  // missing. It is only reachable once the password is right, and spending it
+  // is the database's decision.
+  if (input.recoveryCode && input.consumeRecoveryCode) {
+    const spent = await input.consumeRecoveryCode(input.recoveryCode);
+    if (!spent) {
+      return { ok: false, reason: "mfa_invalid", userId: candidate.userId };
+    }
+    return {
+      ok: true,
+      userId: candidate.userId,
+      tenantId: candidate.tenantId,
+      role: candidate.role,
+      locale: candidate.locale,
+      usedRecoveryCode: true,
+    };
   }
 
   if (candidate.mfaEnabled) {

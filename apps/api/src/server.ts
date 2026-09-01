@@ -15,6 +15,7 @@ import { registerRoutes, STATUSES } from "./routes.js";
 import { registerBelegeRoutes } from "./belege.js";
 import { registerSearchRoutes } from "./search.js";
 import { registerUploadRoutes } from "./upload.js";
+import { registerAccountRoutes } from "./account.js";
 import { registerVerfahrensdokuRoutes } from "./verfahrensdoku.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -234,6 +235,12 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     });
   }
 
+  registerAccountRoutes(app, {
+    db: opts.db,
+    authenticate,
+    secureCookies: opts.secureCookies ?? true,
+    ...(opts.inboxDomain ? { issuer: `Belegbox (${opts.inboxDomain})` } : {}),
+  });
   registerPaymentRoutes(app, { db: opts.db, resolveTenant });
   registerDatevRoutes(app, { db: opts.db, resolveTenant });
   registerSearchRoutes(app, { db: opts.db, resolveTenant, statuses: STATUSES });

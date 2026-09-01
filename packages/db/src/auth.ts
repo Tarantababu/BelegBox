@@ -360,3 +360,180 @@ export async function revokeSessionsForUser(
   );
   return Number(rows[0]?.revoke_sessions_for_user ?? 0);
 }
+
+/**
+ * Holds a new TOTP secret aside until a code proves it works.
+ *
+ * The secret in use is untouched, so a scan that did not take leaves the user
+ * signing in exactly as before.
+ */
+export async function setPendingTotp(
+  tx: TenantClient,
+  userId: string,
+  secret: string,
+): Promise<void> {
+  await tx.query(
+    "UPDATE users SET pending_totp_secret = $2, pending_totp_at = now() WHERE id = $1",
+    [userId, secret],
+  );
+}
+
+export async function getPendingTotp(
+  tx: TenantClient,
+  userId: string,
+): Promise<{ secret: string; at: Date } | undefined> {
+  const { rows } = await tx.query<{ pending_totp_secret: string | null; pending_totp_at: Date | null }>(
+    "SELECT pending_totp_secret, pending_totp_at FROM users WHERE id = $1",
+    [userId],
+  );
+  const row = rows[0];
+  if (!row?.pending_totp_secret || !row.pending_totp_at) return undefined;
+  return { secret: row.pending_totp_secret, at: row.pending_totp_at };
+}
+
+/**
+ * Promotes the pending secret to the one in use.
+ *
+ * One statement, and it clears the pending columns in the same breath: a
+ * promotion that left the pending secret behind would leave a second working
+ * factor nobody knows about.
+ */
+export async function activatePendingTotp(tx: TenantClient, userId: string): Promise<boolean> {
+  const { rowCount } = await tx.query(
+    `UPDATE users
+        SET totp_secret = pending_totp_secret,
+            mfa_enabled = true,
+            pending_totp_secret = NULL,
+            pending_totp_at = NULL
+      WHERE id = $1 AND pending_totp_secret IS NOT NULL`,
+    [userId],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+export async function discardPendingTotp(tx: TenantClient, userId: string): Promise<void> {
+  await tx.query(
+    "UPDATE users SET pending_totp_secret = NULL, pending_totp_at = NULL WHERE id = $1",
+    [userId],
+  );
+}
+
+/**
+ * Replaces a user's recovery codes.
+ *
+ * Wholesale, because the old set belonged to the authenticator being replaced.
+ * Leaving spent or superseded codes in place would keep a way in that the user
+ * believes they have revoked.
+ */
+export async function replaceRecoveryCodes(
+  tx: TenantClient,
+  userId: string,
+  hashes: string[],
+): Promise<number> {
+  await tx.query("DELETE FROM recovery_codes WHERE user_id = $1", [userId]);
+  for (const hash of hashes) {
+    await tx.query(
+      "INSERT INTO recovery_codes (tenant_id, user_id, code_hash) VALUES (current_tenant_id(), $1, $2)",
+      [userId, hash],
+    );
+  }
+  return hashes.length;
+}
+
+export async function countUnusedRecoveryCodes(
+  tx: TenantClient,
+  userId: string,
+): Promise<number> {
+  const { rows } = await tx.query<{ n: string }>(
+    "SELECT count(*) AS n FROM recovery_codes WHERE user_id = $1 AND used_at IS NULL",
+    [userId],
+  );
+  return Number(rows[0]?.n ?? 0);
+}
+
+/**
+ * Spends one recovery code, if it is there and unused.
+ *
+ * Atomic, for the same reason `consumeTotp` is: the `used_at IS NULL` sits in
+ * the UPDATE rather than in a preceding SELECT, so two simultaneous uses of one
+ * code cannot both succeed.
+ *
+ * Runs through a SECURITY DEFINER function because sign-in happens before a
+ * tenant scope exists - the same arrangement `findUserForLogin` and
+ * `consumeTotp` use. The application connection carries no `app.tenant_id` at
+ * this point, so the row level policy on recovery_codes would match nothing and
+ * every code would look already spent.
+ */
+export async function claimRecoveryCode(
+  client: PoolClient,
+  userId: string,
+  codeHash: string,
+): Promise<boolean> {
+  const { rows } = await client.query<{ claim_recovery_code: boolean }>(
+    "SELECT claim_recovery_code($1, $2)",
+    [userId, codeHash],
+  );
+  return rows[0]?.claim_recovery_code === true;
+}
+
+export interface ApiKeyRow {
+  id: string;
+  name: string;
+  environment: string;
+  prefix: string;
+  scopes: string[];
+  created_at: Date;
+  expires_at: Date | null;
+  last_used_at: Date | null;
+  revoked_at: Date | null;
+}
+
+/** Never returns `token_hash`. There is no path that reveals a key twice. */
+export async function listApiKeys(tx: TenantClient): Promise<ApiKeyRow[]> {
+  const { rows } = await tx.query<ApiKeyRow>(
+    `SELECT id, name, environment, prefix, scopes, created_at,
+            expires_at, last_used_at, revoked_at
+       FROM api_keys
+      ORDER BY revoked_at NULLS FIRST, created_at DESC`,
+  );
+  return rows;
+}
+
+/**
+ * Revokes a key.
+ *
+ * Marked rather than deleted: a key that was used needs to stay explicable
+ * afterwards, and `last_used_at` on a row that no longer exists explains
+ * nothing. Already-revoked keys are left alone so the first revocation time
+ * stands.
+ */
+export async function revokeApiKey(tx: TenantClient, id: string): Promise<boolean> {
+  const { rowCount } = await tx.query(
+    "UPDATE api_keys SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL",
+    [id],
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * The email and password hash for a user already identified by their session.
+ *
+ * The hash re-authenticates before a change to the credentials themselves; the
+ * email labels the entry in the authenticator app, where a user id would leave
+ * someone looking at a UUID trying to work out which account it belongs to.
+ *
+ * Scoped to the tenant, unlike `findUserForLogin`: by this point a session has
+ * established which tenant is asking, so there is no reason to reach outside
+ * it.
+ */
+export async function getAccountUser(
+  tx: TenantClient,
+  userId: string,
+): Promise<{ email: string; passwordHash: string | null } | undefined> {
+  const { rows } = await tx.query<{ email: string; password_hash: string | null }>(
+    "SELECT email, password_hash FROM users WHERE id = $1",
+    [userId],
+  );
+  const row = rows[0];
+  return row ? { email: row.email, passwordHash: row.password_hash } : undefined;
+}

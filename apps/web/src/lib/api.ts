@@ -411,3 +411,109 @@ export async function exportBelege(body: {
     },
   };
 }
+
+export interface MfaStatus {
+  enrolled: boolean;
+  recoveryCodesLeft: number;
+  pending: { startedAt: string } | null;
+}
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  environment: string;
+  prefix: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+async function withSession(path: string, init: RequestInit = {}): Promise<Response | null> {
+  const token = await currentSession();
+  if (!token) return null;
+  return fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    },
+    cache: "no-store",
+  });
+}
+
+export async function getMfaStatus(): Promise<MfaStatus | null> {
+  const response = await withSession("/v1/account/mfa");
+  if (!response?.ok) return null;
+  return (await response.json()) as MfaStatus;
+}
+
+export async function beginMfa(
+  password: string,
+): Promise<{ ok: true; secret: string; uri: string } | { ok: false; error: string }> {
+  const response = await withSession("/v1/account/mfa/begin", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!response) return { ok: false, error: "unauthorized" };
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+    return { ok: false, error: detail.message ?? detail.error ?? "failed" };
+  }
+  const body = (await response.json()) as { secret: string; uri: string };
+  return { ok: true, ...body };
+}
+
+export async function confirmMfa(
+  code: string,
+): Promise<
+  { ok: true; recoveryCodes: string[]; cookie: string | null } | { ok: false; error: string }
+> {
+  const response = await withSession("/v1/account/mfa/confirm", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!response) return { ok: false, error: "unauthorized" };
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: detail.error ?? "failed" };
+  }
+  const body = (await response.json()) as { recoveryCodes: string[] };
+  // Rotating revokes every session, including this one; the API issues a
+  // replacement, and it has to be passed on or the user is signed out while
+  // reading codes they see only once.
+  return { ok: true, recoveryCodes: body.recoveryCodes, cookie: response.headers.get("set-cookie") };
+}
+
+export async function listApiKeys(): Promise<ApiKeySummary[] | null> {
+  const response = await withSession("/v1/api-keys");
+  if (!response?.ok) return null;
+  return ((await response.json()) as { keys: ApiKeySummary[] }).keys;
+}
+
+export async function createApiKey(input: {
+  name: string;
+  environment: string;
+  password: string;
+}): Promise<{ ok: true; token: string; name: string } | { ok: false; error: string }> {
+  const response = await withSession("/v1/api-keys", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response) return { ok: false, error: "unauthorized" };
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+    return { ok: false, error: detail.message ?? detail.error ?? "failed" };
+  }
+  const body = (await response.json()) as { token: string; name: string };
+  return { ok: true, ...body };
+}
+
+export async function revokeApiKey(id: string): Promise<boolean> {
+  const response = await withSession(`/v1/api-keys/${id}`, { method: "DELETE" });
+  return Boolean(response?.ok);
+}

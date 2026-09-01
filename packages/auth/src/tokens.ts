@@ -61,3 +61,59 @@ export function secureEquals(a: string, b: string): boolean {
   }
   return timingSafeEqual(left, right);
 }
+
+/**
+ * Recovery codes.
+ *
+ * Ten of them, shown once, each usable once. They exist so that a lost phone
+ * is an inconvenience rather than a lost account - the alternative is an
+ * operator editing the database, which is the access this system is built not
+ * to need.
+ *
+ * Formatted in groups because they are read off a screen and typed by hand,
+ * often under stress. The alphabet excludes the characters that get confused
+ * in that situation: no O against 0, no I or L against 1.
+ */
+const RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const RECOVERY_GROUPS = 4;
+const RECOVERY_GROUP_LEN = 5;
+export const RECOVERY_CODE_COUNT = 10;
+
+export function generateRecoveryCode(): string {
+  const total = RECOVERY_GROUPS * RECOVERY_GROUP_LEN;
+  // Rejection sampling: taking a byte modulo 31 would make the first letters of
+  // the alphabet measurably likelier, which quietly shrinks the keyspace.
+  const chars: string[] = [];
+  while (chars.length < total) {
+    for (const byte of randomBytes(total)) {
+      if (chars.length === total) break;
+      if (byte >= 248) continue;
+      chars.push(RECOVERY_ALPHABET[byte % RECOVERY_ALPHABET.length] as string);
+    }
+  }
+
+  const groups: string[] = [];
+  for (let i = 0; i < RECOVERY_GROUPS; i += 1) {
+    groups.push(chars.slice(i * RECOVERY_GROUP_LEN, (i + 1) * RECOVERY_GROUP_LEN).join(""));
+  }
+  return groups.join("-");
+}
+
+export function generateRecoveryCodes(count = RECOVERY_CODE_COUNT): string[] {
+  return Array.from({ length: count }, () => generateRecoveryCode());
+}
+
+/**
+ * Normalises what the user typed before it is hashed.
+ *
+ * Someone reading a code off a screen types it with the hyphens, without them,
+ * or in lower case. All three are the same code, and refusing two of the three
+ * would send a locked-out user to support.
+ */
+export function normaliseRecoveryCode(input: string): string {
+  return input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export function hashRecoveryCode(input: string): string {
+  return hashToken(normaliseRecoveryCode(input));
+}

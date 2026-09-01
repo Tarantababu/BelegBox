@@ -218,3 +218,15 @@ p.ok {
 .uploader label { font-size: 13px; color: var(--ink2); }
 .uploader input[type="file"] { font-family: var(--sans); font-size: 13px; flex: 1; min-width: 180px; }
 .uploader .hint { flex-basis: 100%; margin: 0; }
+
+/* Recovery codes. Monospace and roomy: they are read off the screen and typed
+   by hand, usually by someone who has just lost their phone. */
+.codes {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+}
+.codes li {
+  font-family: var(--mono); font-size: 14px; letter-spacing: 0.04em;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;
+  padding: 8px 10px; text-align: center;
+}

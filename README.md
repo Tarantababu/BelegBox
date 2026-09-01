@@ -436,6 +436,44 @@ Every template ships `approved: false` until a lawyer reviews the wording
 (Ek A). Production refuses to render an unapproved one; the CLI renders them and
 says so.
 
+## Rotating a second factor, and surviving a lost phone
+
+Two properties keep this from being the screen that locks people out of ten
+years of tax records.
+
+**Rotation is two steps.** A new secret is issued and held aside; the one in use
+is untouched until a code proves the new one was scanned correctly. A mistyped
+scan or a phone with a wrong clock costs nothing, and a wrong code leaves the
+pending secret in place rather than making the user start over on a typo. The
+pending secret is kept server-side rather than round-tripped through the
+browser, so a caller cannot confirm a secret of their own choosing.
+
+**Changing credentials asks for the password again.** A live session is not
+enough to rotate a second factor or mint an API key: a stolen cookie would
+otherwise be an escalation into permanent ownership of the account. Confirming a
+rotation then revokes every session — including the current one, which is
+immediately reissued, or the user would be signed out at the moment they are
+reading recovery codes they see only once.
+
+**Ten recovery codes**, single-use, replaced wholesale on each rotation because
+the old set belonged to the authenticator being retired. Without them a lost
+phone means an operator editing the database, which is the access this system is
+built not to need. They are hashed with SHA-256 rather than the password KDF —
+they are machine-generated randomness, not a memorable secret, and ten scrypt
+runs per sign-in attempt would be the only thing a slow hash bought. The
+alphabet leaves out `O`, `I`, `L`, `0` and `1`, and input is normalised, because
+they are read off a screen and typed by hand by someone who has just lost their
+phone.
+
+Claiming one runs through a `SECURITY DEFINER` function, like `consume_totp` and
+`find_user_for_login`: sign-in happens before a tenant scope exists, so the
+application connection carries no `app.tenant_id` and the row level policy would
+match nothing — every code would look already spent.
+
+API keys are shown once and stored only as a hash; there is no path that reveals
+one twice. A key authenticates a tenant rather than a person, so it cannot
+rotate a second factor or mint another key, and key management is the owner's.
+
 ## Authentication
 
 Two credentials, one answer. A browser presents an opaque session cookie; an

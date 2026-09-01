@@ -5,8 +5,13 @@ export {
   verifyPassword,
 } from "./password.js";
 export {
+  RECOVERY_CODE_COUNT,
   environmentOf,
   generateApiKey,
+  generateRecoveryCode,
+  generateRecoveryCodes,
+  hashRecoveryCode,
+  normaliseRecoveryCode,
   generateSessionToken,
   hashToken,
   secureEquals,

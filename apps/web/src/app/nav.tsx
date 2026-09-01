@@ -6,7 +6,7 @@ export function Chrome({
   current,
 }: {
   tenantName: string;
-  current: "inbox" | "archive" | "exports" | "doku" | "archiv";
+  current: "inbox" | "archive" | "exports" | "doku" | "archiv" | "einstellungen";
 }) {
   return (
     <header className="top">
@@ -37,6 +37,9 @@ export function Chrome({
         </Link>
         <Link href="/verfahrensdokumentation" aria-current={current === "doku" ? "page" : undefined}>
           Verfahrensdokumentation
+        </Link>
+        <Link href="/einstellungen" aria-current={current === "einstellungen" ? "page" : undefined}>
+          Konto
         </Link>
       </nav>
     </header>

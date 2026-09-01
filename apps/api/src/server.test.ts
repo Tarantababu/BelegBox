@@ -192,3 +192,55 @@ describe("manual upload", () => {
     expect(res.json().error).toBe("beraterNumber and mandantNumber are required");
   });
 });
+
+describe("account credentials", () => {
+  const person = async () => ({
+    tenantId: randomUUID(),
+    userId: randomUUID(),
+    role: "owner",
+    kind: "session" as const,
+  });
+  const key = async () => ({ tenantId: randomUUID(), kind: "api_key" as const });
+
+  /**
+   * An API key authenticates a tenant, not a person. Letting one rotate a
+   * second factor or mint further keys would turn a leaked integration
+   * credential into ownership of the account.
+   */
+  it.each([
+    ["/v1/account/mfa", "GET"],
+    ["/v1/account/mfa/begin", "POST"],
+    ["/v1/api-keys", "GET"],
+    ["/v1/api-keys", "POST"],
+  ])("refuses an API key at %s", async (url, method) => {
+    app = await buildApi({ db: stubDb([]), authenticate: key });
+    const res = await app.inject({ url, method: method as "GET" | "POST", payload: {} });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("will not rotate a second factor on a session alone", async () => {
+    // A stolen cookie must not be upgradeable into permanent ownership by
+    // swapping the authenticator.
+    app = await buildApi({ db: stubDb({ email: "a@b.c", passwordHash: null }), authenticate: person });
+    const res = await app.inject({
+      url: "/v1/account/mfa/begin",
+      method: "POST",
+      payload: {},
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error).toBe("reauthentication_required");
+  });
+
+  it("keeps key management to the owner", async () => {
+    app = await buildApi({
+      db: stubDb([]),
+      authenticate: async () => ({
+        tenantId: randomUUID(),
+        userId: randomUUID(),
+        role: "accountant",
+        kind: "session" as const,
+      }),
+    });
+    expect((await app.inject({ url: "/v1/api-keys" })).statusCode).toBe(403);
+  });
+});

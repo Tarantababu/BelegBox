@@ -4,6 +4,7 @@ import {
   generateSessionToken,
   hashToken,
   sessionExpiry,
+  hashRecoveryCode,
 } from "@belegbox/auth";
 import {
   authenticateApiKey,
@@ -16,6 +17,8 @@ import {
   setTotpSecret,
   touchSession,
   type Db,
+  claimRecoveryCode,
+  countUnusedRecoveryCodes,
 } from "@belegbox/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -105,6 +108,8 @@ export interface LoginRequestBody {
   email?: string;
   password?: string;
   totpCode?: string;
+  /** Offered instead of a code when the authenticator is gone. Single-use. */
+  recoveryCode?: string;
 }
 
 export interface LoginDeps {
@@ -137,6 +142,17 @@ export async function handleLogin(
   const outcome = await attemptLogin(candidate, {
     password,
     ...(typeof body.totpCode === "string" ? { totpCode: body.totpCode } : {}),
+    ...(typeof body.recoveryCode === "string" && body.recoveryCode.trim()
+      ? {
+          recoveryCode: body.recoveryCode,
+          // The database decides: only it knows whether the code is unused, and
+          // the claim is atomic so two simultaneous uses cannot both win.
+          consumeRecoveryCode: (code: string) =>
+            deps.db.withAdmin((client) =>
+              claimRecoveryCode(client, candidate?.userId as string, hashRecoveryCode(code)),
+            ),
+        }
+      : {}),
   });
 
   if (!outcome.ok) {
@@ -179,6 +195,19 @@ export async function handleLogin(
     );
   }
 
+  // Someone signing in this way has lost their authenticator. Saying how many
+  // codes remain is what stops the sequence ending at zero with no way in.
+  let recoveryCodesLeft: number | undefined;
+  if (outcome.usedRecoveryCode) {
+    recoveryCodesLeft = await deps.db.withTenant(outcome.tenantId, (tx) =>
+      countUnusedRecoveryCodes(tx, outcome.userId),
+    );
+    request.log.warn(
+      { userId: outcome.userId, recoveryCodesLeft },
+      "sign-in used a recovery code",
+    );
+  }
+
   const token = generateSessionToken();
   await deps.db.withTenant(outcome.tenantId, (tx) =>
     createSession(tx, {
@@ -213,7 +242,51 @@ export async function handleLogin(
     role: outcome.role,
     locale: outcome.locale,
     ...(outcome.activatedMfa ? { mfaActivated: true } : {}),
+    ...(outcome.usedRecoveryCode ? { usedRecoveryCode: true, recoveryCodesLeft } : {}),
   });
+}
+
+
+/**
+ * Issues a session and sets its cookie.
+ *
+ * Shared by sign-in and by anything that has to re-establish the current device
+ * after revoking every session - rotating a second factor, for one. Without it
+ * the user is signed out at the moment they are being shown recovery codes they
+ * have one chance to write down.
+ */
+export async function issueSession(
+  deps: { db: Db; secureCookies: boolean },
+  userId: string,
+  tenantId: string,
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const token = generateSessionToken();
+  await deps.db.withTenant(tenantId, (tx) =>
+    createSession(tx, {
+      userId,
+      tokenHash: hashToken(token),
+      expiresAt: sessionExpiry(),
+      ip: request.ip,
+      userAgent:
+        typeof request.headers["user-agent"] === "string"
+          ? request.headers["user-agent"].slice(0, 500)
+          : null,
+    }),
+  );
+
+  reply.header(
+    "set-cookie",
+    [
+      `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      `Max-Age=${Math.floor((sessionExpiry().getTime() - Date.now()) / 1000)}`,
+      ...(deps.secureCookies ? ["Secure"] : []),
+    ].join("; "),
+  );
 }
 
 export async function handleLogout(

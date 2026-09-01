@@ -5,7 +5,16 @@ import {
   type LoginCandidate,
 } from "./login.js";
 import { DUMMY_HASH, hashPassword, needsRehash, verifyPassword } from "./password.js";
-import { environmentOf, generateApiKey, generateSessionToken, hashToken, secureEquals } from "./tokens.js";
+import {
+  environmentOf,
+  generateApiKey,
+  generateRecoveryCode,
+  generateRecoveryCodes,
+  generateSessionToken,
+  hashRecoveryCode,
+  hashToken,
+  secureEquals,
+} from "./tokens.js";
 import { base32Decode, base32Encode, generateTotpSecret, requiresMfa, totpCode, totpUri, verifyTotp } from "./totp.js";
 
 const PASSWORD = "correct horse battery staple";
@@ -330,5 +339,81 @@ describe("login", () => {
     // misconfigured owner lock themselves out by reloading the page.
     expect(countsAsFailure("mfa_enrollment_required")).toBe(false);
     expect(countsAsFailure("mfa_required")).toBe(false);
+  });
+});
+
+describe("recovery codes", () => {
+  it("reads back the way someone types them under stress", () => {
+    // Off a screen, by hand, having just lost a phone: lower case, hyphens
+    // dropped, spaces added. All three are the same code.
+    const code = generateRecoveryCode();
+    const mangled = code.toLowerCase().replace(/-/g, " ");
+    expect(hashRecoveryCode(mangled)).toBe(hashRecoveryCode(code));
+  });
+
+  it("leaves out the characters that get misread", () => {
+    // No O against 0, no I or L against 1.
+    const codes = generateRecoveryCodes(40).join("");
+    expect(codes).not.toMatch(/[OIL01]/);
+  });
+
+  it("does not repeat itself", () => {
+    const codes = generateRecoveryCodes(50);
+    expect(new Set(codes).size).toBe(50);
+  });
+
+  it("is long enough to be worth hashing", () => {
+    // 20 characters from a 31-letter alphabet is about 99 bits.
+    expect(generateRecoveryCode().replace(/-/g, "")).toHaveLength(20);
+  });
+});
+
+describe("signing in with a recovery code", () => {
+  const candidate = {
+    userId: "u1",
+    tenantId: "t1",
+    passwordHash: "",
+    totpSecret: "JBSWY3DPEHPK3PXP",
+    role: "owner",
+    locale: "de",
+    mfaEnabled: true,
+    lockedUntil: null,
+  };
+
+  it("stands in for the authenticator", async () => {
+    const hashed = await hashPassword(PASSWORD);
+    const outcome = await attemptLogin(
+      { ...candidate, passwordHash: hashed },
+      { password: PASSWORD, recoveryCode: "ABCDE-FGHJK", consumeRecoveryCode: async () => true },
+    );
+    expect(outcome.ok).toBe(true);
+    expect(outcome.ok && outcome.usedRecoveryCode).toBe(true);
+  });
+
+  it("is refused once the database says it is spent", async () => {
+    const hashed = await hashPassword(PASSWORD);
+    const outcome = await attemptLogin(
+      { ...candidate, passwordHash: hashed },
+      { password: PASSWORD, recoveryCode: "ABCDE-FGHJK", consumeRecoveryCode: async () => false },
+    );
+    expect(outcome).toMatchObject({ ok: false, reason: "mfa_invalid" });
+  });
+
+  it("is never reached on a wrong password", async () => {
+    // The code must not be spent by someone who does not have the password.
+    let asked = false;
+    const outcome = await attemptLogin(
+      { ...candidate, passwordHash: await hashPassword(PASSWORD) },
+      {
+        password: "wrong password entirely",
+        recoveryCode: "ABCDE-FGHJK",
+        consumeRecoveryCode: async () => {
+          asked = true;
+          return true;
+        },
+      },
+    );
+    expect(outcome).toMatchObject({ ok: false, reason: "invalid_credentials" });
+    expect(asked).toBe(false);
   });
 });
