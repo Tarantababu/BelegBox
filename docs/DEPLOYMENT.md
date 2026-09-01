@@ -83,14 +83,82 @@ the URL rather than disabling verification.
 ### 2. Object storage
 
 ```bash
-aws s3api create-bucket --bucket belegbox-raw --object-lock-enabled-for-bucket
+aws s3api create-bucket \
+  --bucket belegbox-archive \
+  --region eu-central-1 \
+  --create-bucket-configuration LocationConstraint=eu-central-1 \
+  --object-lock-enabled-for-bucket
 ```
 
-Object locking **cannot be enabled on an existing bucket**. Set
-`S3_OBJECT_LOCK_MODE=COMPLIANCE` in production: GOVERNANCE can be lifted by
+`--object-lock-enabled-for-bucket` **cannot be added to an existing bucket**.
+Getting it wrong means creating a second bucket and re-archiving, so it is worth
+checking before the first document arrives. It also turns on versioning, which
+Object Lock requires.
+
+Production uses `S3_OBJECT_LOCK_MODE=COMPLIANCE`. GOVERNANCE can be lifted by
 anyone holding `s3:BypassGovernanceRetention`, which is not the property § 14b
 UStG needs. COMPLIANCE cannot be lifted by anyone, including the account root,
-which also means a mistake is permanent for ten years.
+until the retain-until date passes — which also means a mistake is permanent for
+ten years.
+
+**Not every S3-compatible store implements Object Lock.** Fly's Tigris was tried
+and does not: the retention came back unset, and a "locked" version deleted
+successfully. Cloudflare R2 does not support it either. AWS S3, Backblaze B2 and
+Wasabi do. Run `packages/storage`'s suite against any candidate before trusting
+it — it writes an object under retention and then tries to delete it.
+
+The application makes exactly three calls — `PutObject`, `GetObject`,
+`HeadObject` — because `ObjectStore` has no delete method at all. So the IAM
+policy it runs under can say so:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WriteAndReadArchivedOriginals",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:PutObjectRetention",
+        "s3:GetObject",
+        "s3:GetObjectRetention"
+      ],
+      "Resource": "arn:aws:s3:::belegbox-archive/*"
+    },
+    {
+      "Sid": "SoAMissingKeyIs404AndNot403",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::belegbox-archive"
+    },
+    {
+      "Sid": "NeverRemoveAnything",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:BypassGovernanceRetention",
+        "s3:PutBucketObjectLockConfiguration"
+      ],
+      "Resource": [
+        "arn:aws:s3:::belegbox-archive",
+        "arn:aws:s3:::belegbox-archive/*"
+      ]
+    }
+  ]
+}
+```
+
+`s3:ListBucket` is there for a reason that is easy to miss: without it, S3
+answers `403 AccessDenied` for a key that does not exist instead of `404
+NoSuchKey`. The Beleg bundle distinguishes "the original is missing from
+storage" from "the read failed" on exactly that error, and would otherwise
+report every missing document as an unexplained failure.
+
+The explicit `Deny` is belt and braces. COMPLIANCE retention already refuses a
+delete, and the code has no method that could ask for one; the policy makes it
+true at a third level, where a future change to either cannot quietly undo it.
 
 ### 3. mustang-svc
 
