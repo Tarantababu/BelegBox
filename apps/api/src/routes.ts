@@ -263,12 +263,30 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
           archivedAt: document.archived_at?.toISOString() ?? null,
           findings: findings.map((f) => {
             const params = f.params ?? {};
-            const explained = f.explain_key
-              ? renderBoth(deps.explain, f.explain_key, locale, params, {
+            // An unapproved template must not reach a user - a lawyer reviews
+            // every explanation before release (Ek A), and in production that
+            // refusal is the point. But it is a refusal about one finding's
+            // wording, not about the document: the verdicts, the amounts and
+            // the payment data are all fine to show, and taking the whole
+            // screen down with a 500 makes the product unusable rather than
+            // careful. The finding is returned with no explanation and a reason
+            // the interface can render honestly.
+            let explained;
+            let explanationWithheld: string | undefined;
+            if (f.explain_key) {
+              try {
+                explained = renderBoth(deps.explain, f.explain_key, locale, params, {
                   ...renderOptions,
                   rawMessage: f.message_raw,
-                })
-              : undefined;
+                });
+              } catch (err) {
+                explanationWithheld = (err as Error).message;
+                request.log.warn(
+                  { explainKey: f.explain_key, reason: explanationWithheld },
+                  "explanation withheld",
+                );
+              }
+            }
 
             return {
               id: f.id,
@@ -281,6 +299,7 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
               // transparency is a differentiator, not a debug affordance.
               messageRaw: f.message_raw,
               params,
+              ...(explanationWithheld ? { explanationWithheld } : {}),
               explanation: explained
                 ? {
                     locale,

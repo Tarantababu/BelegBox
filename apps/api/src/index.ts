@@ -3,6 +3,8 @@ import { ConsoleEmailSender, PostmarkEmailSender, type EmailSender } from "@bele
 import { Db, assertRlsEnforced, createPool } from "@belegbox/db";
 import { buildApi } from "./server.js";
 import { FilesystemObjectStore, S3ObjectStore, type ObjectStore } from "@belegbox/storage";
+import { readFile } from "node:fs/promises";
+import { loadRuleSet, type RuleSet } from "@belegbox/rules-engine";
 
 const url = process.env["DATABASE_URL"];
 if (!url) {
@@ -19,6 +21,13 @@ const db = new Db(createPool(url));
 await assertRlsEnforced(db);
 
 const explain = await loadTemplateDir();
+
+// The tenant rule set, loaded once at start like the worker does.
+let ruleSet: RuleSet | undefined;
+if (process.env["RULESET_FILE"]) {
+  ruleSet = loadRuleSet(await readFile(process.env["RULESET_FILE"], "utf8"));
+  console.log(`ruleset ${process.env["RULESET_FILE"]}`);
+}
 
 // Postmark when configured, otherwise a sender that prints and says so. A
 // silent no-op is how a reset flow reaches staging looking like it works.
@@ -85,6 +94,11 @@ const app = await buildApi({
   // Verfahrensdokumentation states the storage that is actually in use rather
   // than the one the document would like to describe.
   objectStore: buildObjectStore(),
+  // Without this the API runs L1-L3 and silently skips L4, so a document
+  // uploaded through the web app is judged by fewer rules than the same
+  // document arriving by email - and L4 is where the tenant's own rules live,
+  // which is the half of the content verdict the product is built around.
+  ...(ruleSet ? { ruleSet } : {}),
   storage: {
     backend: process.env["S3_BUCKET_RAW"] ? "S3" : "Dateisystem",
     bucket: process.env["S3_BUCKET_RAW"] ?? (process.env["ARCHIVE_DIR"] ?? "lokales Verzeichnis"),

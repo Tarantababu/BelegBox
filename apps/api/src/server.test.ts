@@ -244,3 +244,36 @@ describe("account credentials", () => {
     expect((await app.inject({ url: "/v1/api-keys" })).statusCode).toBe(403);
   });
 });
+
+describe("an unapproved explanation", () => {
+  /**
+   * A lawyer reviews every explanation before release (Ek A), and production
+   * refuses to render an unapproved one. That refusal is about one finding's
+   * wording - it must not take the document screen with it, because the
+   * verdicts, the amounts and the payment data are all fine to show.
+   */
+  it("is withheld without failing the document", async () => {
+    const refusing = {
+      get: () => {
+        throw new Error("Template is not approved for release.");
+      },
+    } as never;
+
+    app = await buildApi({
+      db: {
+        withTenant: async (_t: string, fn: (tx: unknown) => Promise<unknown>) =>
+          fn({
+            query: async (sql: string) =>
+              /FROM findings/i.test(sql)
+                ? { rows: [{ id: "f1", layer: "l4_tenant", code: "x", severity: "content_error", explain_key: "gastro.beverage_wrong_rate", message_raw: "raw", params: {} }] }
+                : { rows: [{ id: randomUUID(), status: "content_error", verdict_form: "pass", verdict_content: "fail", received_at: new Date(), parsed: null }] },
+          }),
+      } as unknown as Db,
+      authenticate: async () => ({ tenantId: randomUUID(), kind: "session" as const }),
+      explain: refusing,
+    });
+
+    const res = await app.inject({ url: `/v1/documents/${randomUUID()}` });
+    expect(res.statusCode).not.toBe(500);
+  });
+});

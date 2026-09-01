@@ -46,40 +46,60 @@ export async function createTenant(
   client: PoolClient,
   input: CreateTenantInput,
 ): Promise<CreatedTenant> {
-  await client.query("BEGIN");
-  try {
-    const { rows } = await client.query<TenantRow>(
-      `INSERT INTO tenants (name, slug, vat_id, tax_number, industry, locale)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, slug, vat_id, tax_number, industry, locale, created_at`,
-      [
-        input.name,
-        input.slug,
-        input.vatId ?? null,
-        input.taxNumber ?? null,
-        input.industry ?? null,
-        input.locale ?? "de",
-      ],
-    );
-    const tenant = rows[0];
-    if (!tenant) throw new Error("Tenant insert returned no row.");
+  // Through a SECURITY DEFINER function, because this is the one write that
+  // cannot happen inside a tenant scope - it is the write that creates the
+  // scope. The application role has SELECT on `tenants` and nothing more, so
+  // inserting directly answered `permission denied for table tenants` the first
+  // time a real signup ran against it. See migration 0011.
+  //
+  // The function body is one transaction, so the tenant and its inbox arrive
+  // together or not at all: a tenant without an inbox has no address to give
+  // suppliers, and setup would report success on a half-built account.
+  const { rows } = await client.query<{
+    tenant_id: string;
+    inbox_id: string;
+    name: string;
+    slug: string;
+    vat_id: string | null;
+    tax_number: string | null;
+    country: string;
+    industry: string | null;
+    locale: string;
+    retention_policy: { invoices_years: number; vouchers_years: number };
+    created_at: Date;
+  }>(
+    `SELECT * FROM provision_tenant($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      input.name,
+      input.slug,
+      input.inboxAddress,
+      input.inboxSuffix,
+      input.vatId ?? null,
+      input.taxNumber ?? null,
+      input.industry ?? null,
+      input.locale ?? "de",
+    ],
+  );
 
-    const inbox = await client.query<{ id: string }>(
-      `INSERT INTO inboxes (tenant_id, address, slug, suffix)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [tenant.id, input.inboxAddress, input.slug, input.inboxSuffix],
-    );
+  const row = rows[0];
+  if (!row) throw new Error("Tenant provisioning returned no row.");
 
-    await client.query("COMMIT");
-    return {
-      tenant,
-      inboxId: inbox.rows[0]?.id as string,
-      inboxAddress: input.inboxAddress,
-    };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  }
+  return {
+    tenant: {
+      id: row.tenant_id,
+      name: row.name,
+      slug: row.slug,
+      vat_id: row.vat_id,
+      tax_number: row.tax_number,
+      country: row.country,
+      industry: row.industry,
+      locale: row.locale,
+      retention_policy: row.retention_policy,
+      created_at: row.created_at,
+    },
+    inboxId: row.inbox_id,
+    inboxAddress: input.inboxAddress,
+  };
 }
 
 export async function getTenant(tx: TenantClient): Promise<TenantRow | undefined> {
