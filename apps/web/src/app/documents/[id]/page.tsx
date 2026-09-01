@@ -94,7 +94,7 @@ export default async function DocumentDetail({
   params: Promise<{ id: string }>;
 }) {
   const tenant = await getTenant();
-  if (!tenant) redirect("/setup");
+  if (!tenant) redirect("/login");
 
   const { id } = await params;
   const doc = await getDocument(id);

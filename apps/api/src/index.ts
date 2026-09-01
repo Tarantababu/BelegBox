@@ -31,12 +31,9 @@ const app = await buildApi({
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean),
-  // Placeholder until API keys and sessions land. Deliberately header-driven
-  // and deliberately obvious, so it cannot be mistaken for authentication.
-  resolveTenant: async (request) => {
-    const header = request.headers["x-belegbox-tenant"];
-    return typeof header === "string" ? header : undefined;
-  },
+  // Cookies are Secure unless explicitly told otherwise, which only local http
+  // needs.
+  secureCookies: process.env["INSECURE_COOKIES"] !== "true",
 });
 
 await app.listen({ port: Number(process.env["PORT"] ?? 8082), host: "0.0.0.0" });

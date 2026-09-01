@@ -1,6 +1,26 @@
 export { Db, createPool, type Queryable, type TenantClient } from "./client.js";
 export { assertRlsEnforced, RlsBypassError } from "./guard.js";
 export {
+  authenticateApiKey,
+  authenticateSession,
+  createApiKey,
+  createSession,
+  consumeTotp,
+  createUser,
+  findUserForLogin,
+  recordLoginAttempt,
+  revokeAllSessions,
+  revokeSession,
+  setTotpSecret,
+  touchSession,
+  type AuthenticatedKey,
+  type AuthenticatedSession,
+  type CreateApiKeyInput,
+  type CreateSessionInput,
+  type CreateUserInput,
+  type LoginCandidate,
+} from "./auth.js";
+export {
   claimInboundMessage,
   finishInboundMessage,
   resolveInbox,

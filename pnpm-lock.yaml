@@ -29,6 +29,9 @@ importers:
       '@belegbox/archive':
         specifier: workspace:*
         version: link:../../packages/archive
+      '@belegbox/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../../packages/core-invoice
@@ -116,6 +119,8 @@ importers:
         version: 5.12.1
 
   packages/archive: {}
+
+  packages/auth: {}
 
   packages/core-invoice:
     dependencies:

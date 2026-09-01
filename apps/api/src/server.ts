@@ -3,6 +3,7 @@ import { verifyChain, verifyEntryProof } from "@belegbox/archive";
 import { proofForDocument, type Db } from "@belegbox/db";
 import type { Registry } from "@belegbox/explain";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import { registerRoutes } from "./routes.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10,11 +11,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export interface ApiOptions {
   db: Db;
   /**
-   * Resolves the caller's tenant. Real authentication - API keys and sessions -
-   * is F1 week 4-5; until then this is injected so the archive endpoint can be
-   * exercised without a half-built auth system standing in for one.
+   * Overrides authentication. Tests inject a principal directly; production
+   * leaves this unset and gets sessions and API keys.
    */
-  resolveTenant: (request: FastifyRequest) => Promise<string | undefined>;
+  authenticate?: (request: FastifyRequest) => Promise<Principal | undefined>;
+  /** Set Secure on the session cookie. Off only for local http. */
+  secureCookies?: boolean;
   logger?: boolean;
   /** Template registry for rendering explanations. */
   explain?: Registry;
@@ -26,6 +28,9 @@ export interface ApiOptions {
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? false });
+  const authenticate = opts.authenticate ?? buildAuthenticator(opts.db);
+  const resolveTenant = async (request: FastifyRequest): Promise<string | undefined> =>
+    (await authenticate(request))?.tenantId;
 
   if (opts.corsOrigins && opts.corsOrigins.length > 0) {
     // An explicit list, never a reflected origin. The API answers with tenant
@@ -36,6 +41,25 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
 
   app.get("/health", async () => ({ status: "ok" }));
 
+  app.post("/v1/auth/login", (request, reply) =>
+    handleLogin({ db: opts.db, secureCookies: opts.secureCookies ?? true }, request, reply),
+  );
+
+  app.post("/v1/auth/logout", async (request, reply) =>
+    handleLogout(opts.db, await authenticate(request), request, reply),
+  );
+
+  app.get("/v1/auth/session", async (request, reply) => {
+    const principal = await authenticate(request);
+    if (!principal) return reply.code(401).send({ error: "unauthorized" });
+    return reply.send({
+      tenantId: principal.tenantId,
+      userId: principal.userId ?? null,
+      role: principal.role ?? null,
+      kind: principal.kind,
+    });
+  });
+
   /**
    * Integrity proof for one archived document.
    *
@@ -45,7 +69,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
    * the document alone.
    */
   app.get<{ Params: { id: string } }>("/v1/archive/proof/:id", async (request, reply) => {
-    const tenantId = await opts.resolveTenant(request);
+    const tenantId = await resolveTenant(request);
     if (!tenantId) {
       return reply.code(401).send({ error: "unauthorized" });
     }
@@ -101,7 +125,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     registerRoutes(app, {
       db: opts.db,
       explain: opts.explain,
-      resolveTenant: opts.resolveTenant,
+      resolveTenant,
       ...(opts.allowUnapprovedTemplates !== undefined
         ? { allowUnapprovedTemplates: opts.allowUnapprovedTemplates }
         : {}),

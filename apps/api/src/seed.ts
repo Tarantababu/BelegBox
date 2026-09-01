@@ -12,6 +12,8 @@ import {
   migrate,
   sealArchiveDay,
 } from "@belegbox/db";
+import { generateTotpSecret, hashPassword, totpCode } from "@belegbox/auth";
+import { createUser } from "@belegbox/db";
 import { generateInboxAddress } from "@belegbox/ingest";
 import { loadRuleSet } from "@belegbox/rules-engine";
 import { validateDocument } from "@belegbox/validation";
@@ -65,6 +67,23 @@ try {
     }),
   );
   const tenantId = created.tenant.id;
+
+  // An owner with a known password and a known second factor, so the sign-in
+  // flow can actually be exercised in development.
+  const seedEmail = "mehmet@sahin-doener.example";
+  const seedPassword = "belegbox-dev-password";
+  const seedSecret = generateTotpSecret();
+  const seedPasswordHash = await hashPassword(seedPassword);
+  await db.withTenant(tenantId, (tx) =>
+    createUser(tx, {
+      email: seedEmail,
+      role: "owner",
+      passwordHash: seedPasswordHash,
+      locale: "tr",
+      totpSecret: seedSecret,
+      mfaEnabled: false,
+    }),
+  );
 
   const ruleSet = loadRuleSet(await readFile(join(ROOT, "rulesets/gastro-de.yaml"), "utf8"));
   const corpusDir = join(ROOT, "corpus");
@@ -150,7 +169,9 @@ try {
   console.log(`documents  ${documents}`);
   console.log(`findings   ${findings}`);
   console.log("");
-  console.log(`export BELEGBOX_TENANT_ID=${tenantId}`);
+  console.log(`sign in   ${seedEmail} / ${seedPassword}`);
+  console.log(`totp      ${seedSecret}`);
+  console.log(`code now  ${totpCode(seedSecret, Math.floor(Date.now() / 1000 / 30))}`);
 } finally {
   await db.close();
 }

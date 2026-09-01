@@ -1,3 +1,5 @@
+import { generateTotpSecret, hashPassword, requiresMfa, totpUri } from "@belegbox/auth";
+import { createUser } from "@belegbox/db";
 import { renderBoth, type Locale, type Registry } from "@belegbox/explain";
 import { generateInboxAddress } from "@belegbox/ingest";
 import {
@@ -66,11 +68,31 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
 
   /** M-01. Three fields, no card, an address at the end of it. */
   app.post<{
-    Body: { name?: string; taxId?: string; industry?: string; locale?: string };
+    Body: {
+      name?: string;
+      taxId?: string;
+      industry?: string;
+      locale?: string;
+      email?: string;
+      password?: string;
+    };
   }>("/v1/tenants", async (request, reply) => {
     const name = request.body?.name?.trim();
     if (!name) {
       return reply.code(400).send({ error: "name is required" });
+    }
+
+    const email = request.body?.email?.trim();
+    const password = request.body?.password ?? "";
+    if (!email || !email.includes("@")) {
+      return reply.code(400).send({ error: "a valid email is required" });
+    }
+
+    let passwordHash: string;
+    try {
+      passwordHash = await hashPassword(password);
+    } catch (err) {
+      return reply.code(400).send({ error: (err as Error).message });
     }
     if (name.length > 200) {
       return reply.code(400).send({ error: "name is too long" });
@@ -100,6 +122,23 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
         }),
       );
 
+      // The owner role requires MFA (PRD § 10.3), so the secret is issued here
+      // and confirmed on the first sign-in. Issuing it later would mean handing
+      // someone an account they cannot use.
+      const secret = generateTotpSecret();
+
+      await deps.db.withTenant(created.tenant.id, (tx) =>
+        createUser(tx, {
+          email,
+          role: "owner",
+          passwordHash,
+          locale,
+          totpSecret: secret,
+          // Not enabled until a code proves the authenticator was set up.
+          mfaEnabled: false,
+        }),
+      );
+
       return reply.code(201).send({
         tenantId: created.tenant.id,
         name: created.tenant.name,
@@ -107,12 +146,20 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
         industry: created.tenant.industry,
         inboxAddress: created.inboxAddress,
         supplierNotice: supplierNotice(name, created.inboxAddress),
+        // Returned once, never stored anywhere the user can read it back.
+        mfa: {
+          required: requiresMfa("owner"),
+          secret,
+          uri: totpUri(secret, email),
+        },
       });
     } catch (err) {
       // The random suffix makes a slug collision improbable rather than
       // impossible; retrying is the caller's business, not a 500.
       if ((err as { code?: string }).code === "23505") {
-        return reply.code(409).send({ error: "that address is already taken; try again" });
+        return reply
+          .code(409)
+          .send({ error: "that email or address is already registered" });
       }
       throw err;
     }

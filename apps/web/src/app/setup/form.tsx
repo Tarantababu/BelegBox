@@ -29,6 +29,26 @@ export function SetupForm() {
         </div>
 
         <div className="field">
+          <label htmlFor="email">E-Mail-Adresse</label>
+          <input id="email" name="email" type="email" autoComplete="username" required />
+        </div>
+
+        <div className="field">
+          <label htmlFor="password">Passwort</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            required
+          />
+          <p className="hint">
+            Mindestens 12 Zeichen. Länge schützt besser als Sonderzeichen.
+          </p>
+        </div>
+
+        <div className="field">
           <label htmlFor="taxId">USt-IdNr. oder Steuernummer</label>
           <input id="taxId" name="taxId" type="text" placeholder="DE123456789" />
         </div>

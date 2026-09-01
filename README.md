@@ -48,6 +48,7 @@ roadmap does not mean its turn has come.
 | `packages/rules-engine` | **Week 3.** YAML → AST → evaluator, dry-run harness |
 | `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
 | `packages/explain` | **Week 4.** Versioned templates, DE + TR, StBerG lint |
+| `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
 | `apps/web` | **Week 4-5.** Next.js. M-01 setup, M-02 inbox, M-03 detail |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
@@ -221,6 +222,40 @@ advice **unwriteable**:
 Every template ships `approved: false` until a lawyer reviews the wording
 (Ek A). Production refuses to render an unapproved one; the CLI renders them and
 says so.
+
+## Authentication
+
+Two credentials, one answer. A browser presents an opaque session cookie; an
+integrator presents `sk_live_…` as a bearer token. Both resolve to a tenant
+before any query runs, and neither is trusted past that point — the tenant id
+goes into `withTenant` and Row Level Security does the enforcing.
+
+Choices worth knowing:
+
+**Opaque session tokens, not JWTs.** A JWT cannot be revoked before it expires
+without the server-side list that a session table already is, and it adds
+signing keys and algorithm confusion to the threat model in exchange for a
+lookup this system performs anyway. Only the hash is stored, so a database leak
+yields no usable session.
+
+**scrypt for passwords**, N=65536 — argon2id is the first recommendation and
+this is the second, chosen because it ships in Node's standard library and the
+runtime image needs no native build. The encoding carries its own algorithm
+name, so a future hash can be a different one without a migration.
+
+**An unknown address and a wrong password are indistinguishable**, in the
+response *and* the timing: a missing account is still verified against a dummy
+hash. For a tax product, an enumeration oracle tells an attacker which companies
+are customers.
+
+**MFA is mandatory for owner and accountant** (§ 10.3), and enrolment completes
+on the first sign-in — setup issues the secret but cannot confirm it, and an
+account its owner cannot use is not a security feature. A used time step is
+claimed atomically, so a code relayed by a phishing page inside its 30-second
+window is already spent.
+
+Lookups go through `SECURITY DEFINER` functions, because authentication is the
+step that establishes the tenant scope — there is no scope to look it up under.
 
 ## Running the whole thing
 

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 const API_URL = process.env["API_URL"] ?? "http://localhost:8082";
 
-export const TENANT_COOKIE = "belegbox_tenant";
+export const SESSION_COOKIE = "belegbox_session";
 
 export interface DocumentSummary {
   id: string;
@@ -74,29 +74,72 @@ export interface Tenant {
   inboxAddress: string | null;
 }
 
-export async function currentTenantId(): Promise<string | undefined> {
-  return (await cookies()).get(TENANT_COOKIE)?.value;
+export async function currentSession(): Promise<string | undefined> {
+  return (await cookies()).get(SESSION_COOKIE)?.value;
 }
 
 /**
- * Calls /v1 with the tenant from the session cookie.
+ * Calls /v1 with the caller's session cookie.
  *
- * The cookie carries a tenant id and nothing else, which is a placeholder for
- * sessions, not a security boundary - anyone who edits it becomes another
- * tenant. Real authentication lands before this is exposed to anyone; it is
- * marked here so it cannot be mistaken for finished.
+ * The cookie is an opaque session token that the API resolves to a tenant. The
+ * browser never sees a tenant id and editing the cookie yields nothing: an
+ * unknown token is simply not a session.
  */
-async function call<T>(path: string, tenantId?: string): Promise<T | undefined> {
-  const tenant = tenantId ?? (await currentTenantId());
-  if (!tenant) return undefined;
+async function call<T>(path: string): Promise<T | undefined> {
+  const token = await currentSession();
+  if (!token) return undefined;
 
   const response = await fetch(`${API_URL}${path}`, {
-    headers: { "x-belegbox-tenant": tenant },
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
     cache: "no-store",
   });
   if (response.status === 404 || response.status === 401) return undefined;
   if (!response.ok) throw new Error(`${path} responded ${response.status}`);
   return (await response.json()) as T;
+}
+
+export interface LoginResult {
+  ok: boolean;
+  error?: string;
+  setCookie?: string;
+}
+
+/**
+ * Signs in against /v1 and passes the API's own Set-Cookie back to the browser.
+ *
+ * The session is minted by the API, not here: the web app has no database
+ * credentials and no way to create one, which is what keeps it an ordinary
+ * client of its own public API.
+ */
+export async function login(body: {
+  email: string;
+  password: string;
+  totpCode?: string;
+}): Promise<LoginResult> {
+  const response = await fetch(`${API_URL}/v1/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: detail.error ?? "invalid_credentials" };
+  }
+
+  const setCookie = response.headers.get("set-cookie");
+  return { ok: true, ...(setCookie ? { setCookie } : {}) };
+}
+
+export async function logout(): Promise<void> {
+  const token = await currentSession();
+  if (!token) return;
+  await fetch(`${API_URL}/v1/auth/logout`, {
+    method: "POST",
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  }).catch(() => undefined);
 }
 
 export function getTenant(): Promise<Tenant | undefined> {
@@ -118,12 +161,21 @@ export function getDocument(id: string): Promise<DocumentDetail | undefined> {
   return call<DocumentDetail>(`/v1/documents/${id}`);
 }
 
+export interface CreatedAccount {
+  tenantId: string;
+  inboxAddress: string;
+  supplierNotice: string;
+  mfa: { required: boolean; secret: string; uri: string };
+}
+
 export async function createTenantAccount(body: {
   name: string;
+  email: string;
+  password: string;
   taxId?: string;
   industry?: string;
   locale?: string;
-}): Promise<{ tenantId: string; inboxAddress: string; supplierNotice: string }> {
+}): Promise<CreatedAccount> {
   const response = await fetch(`${API_URL}/v1/tenants`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -134,9 +186,5 @@ export async function createTenantAccount(body: {
     const detail = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(detail.error ?? `setup failed (${response.status})`);
   }
-  return (await response.json()) as {
-    tenantId: string;
-    inboxAddress: string;
-    supplierNotice: string;
-  };
+  return (await response.json()) as CreatedAccount;
 }

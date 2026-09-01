@@ -19,13 +19,13 @@ afterEach(async () => {
 
 describe("GET /v1/archive/proof/:id", () => {
   it("requires a tenant", async () => {
-    app = await buildApi({ db: stubDb(undefined), resolveTenant: async () => undefined });
+    app = await buildApi({ db: stubDb(undefined), authenticate: async () => undefined });
     const res = await app.inject({ url: `/v1/archive/proof/${randomUUID()}` });
     expect(res.statusCode).toBe(401);
   });
 
   it("rejects an id that is not a UUID", async () => {
-    app = await buildApi({ db: stubDb(undefined), resolveTenant: async () => randomUUID() });
+    app = await buildApi({ db: stubDb(undefined), authenticate: async () => ({ tenantId: randomUUID(), kind: "session" as const }) });
     const res = await app.inject({ url: "/v1/archive/proof/not-a-uuid" });
     expect(res.statusCode).toBe(400);
   });
@@ -34,7 +34,7 @@ describe("GET /v1/archive/proof/:id", () => {
   it("answers 404 when there is no proof", async () => {
     app = await buildApi({
       db: { withTenant: async () => undefined } as unknown as Db,
-      resolveTenant: async () => randomUUID(),
+      authenticate: async () => ({ tenantId: randomUUID(), kind: "session" as const }),
     });
     const res = await app.inject({ url: `/v1/archive/proof/${randomUUID()}` });
     expect(res.statusCode).toBe(404);

@@ -35,7 +35,7 @@ export default async function Inbox({
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
   const tenant = await getTenant();
-  if (!tenant) redirect("/setup");
+  if (!tenant) redirect("/login");
 
   const params = await searchParams;
   const inbox = await getInbox({

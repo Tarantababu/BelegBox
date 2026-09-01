@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { logoutAction } from "./logout";
 
 export function Chrome({
   tenantName,
@@ -15,6 +16,11 @@ export function Chrome({
           Belegbox
         </span>
         <span className="who">{tenantName}</span>
+        <form action={logoutAction}>
+          <button className="btn" type="submit" style={{ padding: "5px 10px", fontSize: 13 }}>
+            Abmelden
+          </button>
+        </form>
       </div>
       <nav className="tabs">
         <Link href="/inbox" aria-current={current === "inbox" ? "page" : undefined}>
