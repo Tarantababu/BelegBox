@@ -46,6 +46,12 @@
     },
     {
       "path": "../../packages/datev"
+    },
+    {
+      "path": "../../packages/beleg-export"
+    },
+    {
+      "path": "../../packages/storage"
     }
   ]
 }

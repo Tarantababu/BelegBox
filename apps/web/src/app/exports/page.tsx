@@ -81,6 +81,36 @@ export default async function ExportsPage() {
           vorsieht.
         </p>
       </div>
+
+      <div className="sec">
+        <h2>Belege zum Stapel</h2>
+        <p className="sub">
+          Die Originaldateien zum selben Zeitraum, als ZIP — genau die Bytes, die
+          eingegangen sind. Ein Belegverzeichnis liegt bei, mit Prüfsumme und
+          Archivtag zu jedem Beleg.
+        </p>
+      </div>
+
+      <form method="get" action="/exports/belege">
+        <div className="pad" style={{ paddingTop: 0 }}>
+          <div className="field">
+            <label htmlFor="belege-from">Zeitraum von</label>
+            <input id="belege-from" name="from" type="date" defaultValue={period.from} required />
+          </div>
+          <div className="field">
+            <label htmlFor="belege-to">bis</label>
+            <input id="belege-to" name="to" type="date" defaultValue={period.to} required />
+          </div>
+          <button className="btn" type="submit">
+            Belege herunterladen
+          </button>
+          <p className="hint">
+            Belege, deren gespeicherte Bytes nicht mehr zu ihrer archivierten
+            Prüfsumme passen, werden nicht beigelegt — sie stehen mit Grund im
+            Belegverzeichnis.
+          </p>
+        </div>
+      </form>
     </div>
   );
 }

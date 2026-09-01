@@ -10,3 +10,6 @@ services/mustang-svc/target/
 services/mustang-svc/.mvn/wrapper/maven-wrapper.jar
 corpus/vendor/
 .vitest/
+
+# Local development state: seeded objects and ingest working files.
+.data/

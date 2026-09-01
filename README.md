@@ -53,6 +53,7 @@ roadmap does not mean its turn has come.
 | `packages/payments` | **Week 5.** GiroCode (EPC-069-12), SEPA pain.001, IBAN validation |
 | `apps/web` | **Week 4-7.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-05 archive, M-06 export, M-11 Verfahrensdokumentation |
 | `packages/datev` | **Week 6.** EXTF Buchungsstapel writer, chart of accounts |
+| `packages/beleg-export` | **Week 7.** ZIP of archived originals, with integrity check and manifest |
 | `packages/verfahrensdoku` | **Week 7.** GoBD Verfahrensdokumentation, generated from the running system |
 | `apps/mobile` | F3 |
 
@@ -224,6 +225,39 @@ assumption.
 Documents that are not e-invoices are skipped with a reason rather than booked
 on a guess. The export is in every paid tier — the PRD makes that a deliberate
 difference from the competitor, who puts it behind their top plan.
+
+### The originals that go with it
+
+A booking without its Beleg is not one anyone can defend, so the same period
+also exports as a ZIP of the archived originals.
+
+**The bytes are the archived bytes.** Not re-serialised, not re-encoded, not
+regenerated from the parsed model - what the supplier sent is what the
+Steuerberater receives. Verified by extracting a real bundle and `cmp`-ing
+against the stored objects.
+
+**Every file is checked on the way out.** Each object is hashed and compared
+with the digest recorded when it was archived. A mismatch means the stored
+bytes are not the archived bytes - corruption or tampering - and the document is
+left out rather than passed off as an original it is not. It is named in the
+manifest with the reason and logged as an error. That makes the export an audit
+of the archive as well as a hand-over: it is the only time a whole period is
+read back and checked. Verified by corrupting one stored object and watching
+the bundle come back six of seven, with the reason in the manifest.
+
+**Nothing goes missing quietly.** `Belegverzeichnis.csv` has a row for every
+document in the period - included or not - with its SHA-256, its archive day
+and that day's Merkle root, so inclusion stays checkable later. Windows-1252
+with semicolons, like the Buchungsstapel beside it and for the same reason.
+
+The ZIP writer is written here rather than pulled in, like the EXTF writer and
+the Merkle tree. Entry names are built, never taken from `documents.filename`,
+which is whatever an email attachment was called: the writer refuses `..`,
+absolute paths, backslashes and control characters, so Zip Slip is impossible
+to reintroduce from the calling side. The extension is sniffed from the bytes,
+because a `.pdf` holding XML is a file the recipient's reader refuses. Zip64 is
+not supported and a bundle that would need it is refused with a message saying
+so, rather than one that opens in some tools and not others.
 
 ## The Verfahrensdokumentation
 
@@ -510,6 +544,10 @@ Scaffolded on a machine with no JDK and no Docker, so:
   print-ready and carries no external asset, but the conversion to PDF/A-3 and
   the archiving of the fassung under Object Lock are not wired. Until they are,
   the fassung is retained in PostgreSQL only.
+- **The Beleg bundle has not been opened by a Steuerberater.** It passes
+  `unzip -t` and extracts byte-identical, but whether the naming actually helps
+  someone reconcile a Buchungsstapel is a question for the same test import
+  that checks the EXTF file.
 - **The DATEV column list is transcribed, not checked.** `packages/datev`
   writes 124 captions on the second header line, and DATEV matches each row's
   width against that line. The surrounding structure is right — two header

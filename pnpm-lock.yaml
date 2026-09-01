@@ -32,6 +32,9 @@ importers:
       '@belegbox/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@belegbox/beleg-export':
+        specifier: workspace:*
+        version: link:../../packages/beleg-export
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../../packages/core-invoice
@@ -56,6 +59,9 @@ importers:
       '@belegbox/rules-engine':
         specifier: workspace:*
         version: link:../../packages/rules-engine
+      '@belegbox/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@belegbox/validation':
         specifier: workspace:*
         version: link:../../packages/validation
@@ -133,6 +139,12 @@ importers:
   packages/archive: {}
 
   packages/auth: {}
+
+  packages/beleg-export:
+    dependencies:
+      '@belegbox/datev':
+        specifier: workspace:*
+        version: link:../datev
 
   packages/core-invoice:
     dependencies:

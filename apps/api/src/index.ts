@@ -2,6 +2,7 @@ import { loadTemplateDir } from "@belegbox/explain";
 import { ConsoleEmailSender, PostmarkEmailSender, type EmailSender } from "@belegbox/mail";
 import { Db, assertRlsEnforced, createPool } from "@belegbox/db";
 import { buildApi } from "./server.js";
+import { FilesystemObjectStore, S3ObjectStore, type ObjectStore } from "@belegbox/storage";
 
 const url = process.env["DATABASE_URL"];
 if (!url) {
@@ -28,6 +29,40 @@ const mail: EmailSender = process.env["POSTMARK_TOKEN"]
     })
   : new ConsoleEmailSender();
 
+/**
+ * Read access to the archive, for the Beleg bundle.
+ *
+ * Mirrors the worker's construction deliberately - the two processes have to
+ * agree on where the originals are, and the environment is the one place that
+ * agreement is written down.
+ */
+function buildObjectStore(): ObjectStore {
+  const bucket = process.env["S3_BUCKET_RAW"];
+
+  if (!bucket) {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error(
+        "S3_BUCKET_RAW is required in production. The filesystem store cannot enforce retention.",
+      );
+    }
+    return new FilesystemObjectStore(process.env["INGEST_STORE_DIR"] ?? ".data/ingest/objects");
+  }
+
+  return new S3ObjectStore({
+    bucket,
+    region: process.env["S3_REGION"] ?? "eu-central-1",
+    ...(process.env["S3_ENDPOINT"] ? { endpoint: process.env["S3_ENDPOINT"] } : {}),
+    ...(process.env["S3_ACCESS_KEY_ID"] && process.env["S3_SECRET_ACCESS_KEY"]
+      ? {
+          credentials: {
+            accessKeyId: process.env["S3_ACCESS_KEY_ID"],
+            secretAccessKey: process.env["S3_SECRET_ACCESS_KEY"],
+          },
+        }
+      : {}),
+  });
+}
+
 const app = await buildApi({
   db,
   explain,
@@ -49,6 +84,7 @@ const app = await buildApi({
   // The same environment the worker writes from, read here so the
   // Verfahrensdokumentation states the storage that is actually in use rather
   // than the one the document would like to describe.
+  objectStore: buildObjectStore(),
   storage: {
     backend: process.env["S3_BUCKET_RAW"] ? "S3" : "Dateisystem",
     bucket: process.env["S3_BUCKET_RAW"] ?? (process.env["ARCHIVE_DIR"] ?? "lokales Verzeichnis"),

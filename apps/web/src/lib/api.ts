@@ -366,3 +366,48 @@ export async function searchArchive(params: Record<string, string>): Promise<Arc
   if (!response.ok) return null;
   return (await response.json()) as ArchiveSearch;
 }
+
+export interface BelegBundle {
+  bytes: ArrayBuffer;
+  filename: string;
+  included: number;
+  skipped: number;
+  integrityFailures: number;
+}
+
+export async function exportBelege(body: {
+  from: string;
+  to: string;
+}): Promise<{ ok: true; bundle: BelegBundle } | { ok: false; error: string }> {
+  const token = await currentSession();
+  if (!token) return { ok: false, error: "unauthorized" };
+
+  const response = await fetch(`${API_URL}/v1/exports/belege`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+    return { ok: false, error: detail.message ?? detail.error ?? "export_failed" };
+  }
+
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+
+  return {
+    ok: true,
+    bundle: {
+      bytes: await response.arrayBuffer(),
+      filename: match?.[1] ?? "belege.zip",
+      included: Number(response.headers.get("x-belegbox-included") ?? 0),
+      skipped: Number(response.headers.get("x-belegbox-skipped") ?? 0),
+      integrityFailures: Number(response.headers.get("x-belegbox-integrity-failures") ?? 0),
+    },
+  };
+}

@@ -6,10 +6,12 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import type { EmailSender } from "@belegbox/mail";
 import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
+import type { ObjectStore } from "@belegbox/storage";
 import { MustangClient } from "@belegbox/validation";
 import { registerDatevRoutes } from "./datev.js";
 import { registerPaymentRoutes } from "./payments.js";
 import { registerRoutes, STATUSES } from "./routes.js";
+import { registerBelegeRoutes } from "./belege.js";
 import { registerSearchRoutes } from "./search.js";
 import { registerVerfahrensdokuRoutes } from "./verfahrensdoku.js";
 
@@ -48,6 +50,13 @@ export interface ApiOptions {
     objectLockMode: string | null;
     retentionYears: number;
   };
+  /**
+   * Reads archived originals for the Beleg bundle (M-06).
+   *
+   * The read side only. `ObjectStore` has no delete, and the API never writes -
+   * the worker owns the writing path.
+   */
+  objectStore?: ObjectStore;
 }
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
@@ -175,6 +184,9 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     registerPaymentRoutes(app, { db: opts.db, resolveTenant });
     registerDatevRoutes(app, { db: opts.db, resolveTenant });
     registerSearchRoutes(app, { db: opts.db, resolveTenant, statuses: STATUSES });
+    if (opts.objectStore) {
+      registerBelegeRoutes(app, { db: opts.db, storage: opts.objectStore, resolveTenant });
+    }
     if (opts.storage) {
       registerVerfahrensdokuRoutes(app, {
         db: opts.db,

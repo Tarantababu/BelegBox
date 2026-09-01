@@ -350,3 +350,55 @@ export async function listDocumentsForExport(
   );
   return rows;
 }
+
+export interface BelegRow {
+  id: string;
+  raw_object_key: string;
+  raw_sha256: string;
+  size_bytes: string;
+  supplier_name: string | null;
+  invoice_number: string | null;
+  issued_at: string | null;
+  total_gross: string | null;
+  status: string;
+  format: string | null;
+  content_type: string | null;
+  received_at: Date;
+  archive_day: string | null;
+  merkle_root: string | null;
+}
+
+/**
+ * The originals to hand over with a Buchungsstapel (M-06).
+ *
+ * Joined to the day chain so the manifest can carry each document's archive day
+ * and that day's Merkle root: the recipient keeps the means to check inclusion
+ * later, rather than having to take the bundle's word for it. The join is a
+ * LEFT one because a document received today sits in a day that has not been
+ * sealed yet, and that is a normal state rather than a missing row.
+ *
+ * Ordered by issue date so the ZIP listing and the Buchungsstapel read in the
+ * same sequence.
+ */
+export async function listBelegeForBundle(
+  tx: TenantClient,
+  range: { from: string; to: string },
+): Promise<BelegRow[]> {
+  const { rows } = await tx.query<BelegRow>(
+    `SELECT d.id, d.raw_object_key, d.raw_sha256, d.size_bytes::text,
+            d.supplier_name, d.invoice_number,
+            d.issued_at::text, d.total_gross::text, d.status,
+            d.format, d.content_type, d.received_at,
+            c.day::text  AS archive_day,
+            c.merkle_root
+       FROM documents d
+       LEFT JOIN archive_chain c
+         ON c.tenant_id = d.tenant_id
+        AND c.day = (d.archived_at AT TIME ZONE 'UTC')::date
+      WHERE d.issued_at BETWEEN $1::date AND $2::date
+        AND d.direction = 'incoming'
+      ORDER BY d.issued_at, d.invoice_number, d.id`,
+    [range.from, range.to],
+  );
+  return rows;
+}

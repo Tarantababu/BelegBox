@@ -18,6 +18,7 @@ import { generateInboxAddress } from "@belegbox/ingest";
 import { loadRuleSet } from "@belegbox/rules-engine";
 import { validateDocument } from "@belegbox/validation";
 import { createTenant } from "@belegbox/db";
+import { FilesystemObjectStore } from "@belegbox/storage";
 
 /**
  * Development seed.
@@ -37,6 +38,19 @@ if (!url) {
 }
 
 const db = new Db(createPool(url, 4));
+
+/**
+ * The corpus bytes, written where the archive expects them.
+ *
+ * The seed used to record an object key without ever storing the object behind
+ * it, so every screen that reads a document's raw bytes - the Beleg bundle
+ * above all - found nothing in a freshly seeded environment. A key with no
+ * object is not a state the archive is ever supposed to be in, and a seed that
+ * produces one is not demonstrating the system.
+ */
+const objects = new FilesystemObjectStore(
+  process.env["INGEST_STORE_DIR"] ?? join(ROOT, ".data/ingest/objects"),
+);
 
 try {
   await db.withAdmin(async (client) => {
@@ -107,12 +121,20 @@ try {
       invoice = undefined;
     }
 
+    const rawSha256 = createHash("sha256").update(bytes).digest("hex");
+    await objects.put({
+      key: `seed/${file}`,
+      bytes,
+      sha256: rawSha256,
+      contentType: "application/xml",
+    });
+
     await db.withTenant(tenantId, async (tx) => {
       const { id } = await insertDocument(tx, {
         inboxId: created.inboxId,
         sourceChannel: "email",
         rawObjectKey: `seed/${file}`,
-        rawSha256: createHash("sha256").update(bytes).digest("hex"),
+        rawSha256,
         sizeBytes: bytes.length,
         filename: file,
         contentType: "application/xml",

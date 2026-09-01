@@ -15,6 +15,7 @@
   "dependencies": {
     "@belegbox/archive": "workspace:*",
     "@belegbox/auth": "workspace:*",
+    "@belegbox/beleg-export": "workspace:*",
     "@belegbox/core-invoice": "workspace:*",
     "@belegbox/datev": "workspace:*",
     "@belegbox/db": "workspace:*",
@@ -23,6 +24,7 @@
     "@belegbox/mail": "workspace:*",
     "@belegbox/payments": "workspace:*",
     "@belegbox/rules-engine": "workspace:*",
+    "@belegbox/storage": "workspace:*",
     "@belegbox/validation": "workspace:*",
     "@belegbox/verfahrensdoku": "workspace:*",
     "@fastify/cors": "^10.0.1",
