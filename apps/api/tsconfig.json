@@ -40,6 +40,9 @@
     },
     {
       "path": "../../packages/payments"
+    },
+    {
+      "path": "../../packages/datev"
     }
   ]
 }

@@ -51,8 +51,8 @@ roadmap does not mean its turn has come.
 | `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
 | `packages/mail` | **Wired.** Outbound mail port, Postmark and console senders |
 | `packages/payments` | **Week 5.** GiroCode (EPC-069-12), SEPA pain.001, IBAN validation |
-| `apps/web` | **Week 4-5.** Next.js. M-01 setup, M-02 inbox, M-03 detail |
-| `packages/datev` | Week 5-6. EXTF writer |
+| `apps/web` | **Week 4-6.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-06 export |
+| `packages/datev` | **Week 6.** EXTF Buchungsstapel writer, chart of accounts |
 | `apps/mobile` | F3 |
 
 ## Receiving mail
@@ -143,6 +143,40 @@ so the format is theirs to choose.
 Payment details come from the parsed invoice, never from the caller. An endpoint
 that accepted an IBAN as input would happily encode one an attacker chose — and
 D-008 exists because a swapped IBAN is the commonest shape of invoice fraud.
+
+## The DATEV export
+
+The monthly hand-off to the Steuerberater, and the point where a compliance tool
+either saves an afternoon or creates one.
+
+**Windows-1252, not UTF-8.** DATEV reads ANSI. A UTF-8 file imports with every
+umlaut broken, which is discovered by the Steuerberater rather than here. What
+CP1252 cannot carry is transliterated the German way rather than dropped, so a
+Turkish supplier name survives as `Sahin` and `Getränke Müller` keeps its
+umlauts as single bytes. The API returns the file base64-encoded for exactly
+this reason: JSON is UTF-8, and round-tripping the bytes through it would undo
+the encoding the format depends on.
+
+**Belegdatum is DDMM, four characters.** The v2 prototype wrote eight
+(defect P-3). DATEV derives the year from the Wirtschaftsjahr in the header, and
+an eight-character date is rejected on import.
+
+**The VAT category picks the account before the rate does.** A reverse-charge
+invoice under § 13b UStG books to 3120 with Buchungsschlüssel 94, not to the
+ordinary expense account — booking it as an ordinary expense claims input tax
+that was never charged, which is the exact error D-002 catches upstream. This is
+why the export reads `documents.parsed` rather than the list projection: the
+projection has no VAT category, and an export built on it would silently book
+every reverse-charge invoice wrong.
+
+**Accounts are data, not code.** SKR03 and SKR04 ship as defaults and a ruleset
+overrides them per tenant. The wrong chart produces a stapel the Steuerberater
+unpicks line by line, so it is a field on the export form rather than an
+assumption.
+
+Documents that are not e-invoices are skipped with a reason rather than booked
+on a guess. The export is in every paid tier — the PRD makes that a deliberate
+difference from the competitor, who puts it behind their top plan.
 
 ## The archive
 
@@ -380,3 +414,10 @@ Scaffolded on a machine with no JDK and no Docker, so:
 - Every version in `services/mustang-svc/versions.properties` reads `UNPINNED`.
   Pinning them against a resolved build is F1 week 1 and blocks storing any
   verdict (R-2).
+- **The DATEV column list is transcribed, not checked.** `packages/datev`
+  writes 124 captions on the second header line, and DATEV matches each row's
+  width against that line. The surrounding structure is right — two header
+  lines, semicolons, CRLF, Windows-1252, DDMM — but the caption list and its
+  count have not been diffed against DATEV's own Buchungsstapel v13 layout.
+  Do that before the first real import. A Steuerberater's test import is
+  already on the F1 critical path for this reason.

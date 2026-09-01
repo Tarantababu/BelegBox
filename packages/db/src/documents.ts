@@ -308,3 +308,45 @@ export async function insertFindings(
   }
   return written;
 }
+
+export interface ExportRow {
+  id: string;
+  supplier_name: string | null;
+  invoice_number: string | null;
+  issued_at: string | null;
+  due_at: string | null;
+  total_gross: string | null;
+  vat_category: string | null;
+  vat_rate: string | null;
+  status: string;
+}
+
+/**
+ * Documents for a bookkeeping export, over a date range.
+ *
+ * The VAT category and rate are pulled out of `parsed` in SQL rather than by
+ * loading every document and digging in TypeScript. They decide which account
+ * the posting lands on, and a reverse-charge invoice booked as an ordinary
+ * expense claims input tax that was never charged.
+ *
+ * Only the first breakdown entry is taken. A mixed-rate invoice needs one
+ * posting per rate, and splitting it wrongly would be worse than booking it
+ * whole where the Steuerberater can see it as one line.
+ */
+export async function listDocumentsForExport(
+  tx: TenantClient,
+  range: { from: string; to: string },
+): Promise<ExportRow[]> {
+  const { rows } = await tx.query<ExportRow>(
+    `SELECT id, supplier_name, invoice_number,
+            issued_at::text, due_at::text, total_gross::text, status,
+            parsed -> 'taxBreakdown' -> 0 ->> 'category' AS vat_category,
+            parsed -> 'taxBreakdown' -> 0 ->> 'rate'     AS vat_rate
+       FROM documents
+      WHERE issued_at BETWEEN $1::date AND $2::date
+        AND direction = 'incoming'
+      ORDER BY issued_at, invoice_number`,
+    [range.from, range.to],
+  );
+  return rows;
+}

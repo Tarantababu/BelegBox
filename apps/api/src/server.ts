@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import type { EmailSender } from "@belegbox/mail";
 import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
+import { registerDatevRoutes } from "./datev.js";
 import { registerPaymentRoutes } from "./payments.js";
 import { registerRoutes } from "./routes.js";
 
@@ -155,6 +156,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
       ...(opts.inboxDomain ? { inboxDomain: opts.inboxDomain } : {}),
     });
     registerPaymentRoutes(app, { db: opts.db, resolveTenant });
+    registerDatevRoutes(app, { db: opts.db, resolveTenant });
   }
 
   return app;

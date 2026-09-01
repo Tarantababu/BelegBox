@@ -245,3 +245,39 @@ export async function getGiroCode(id: string): Promise<GiroCode | undefined> {
   if (!response.ok) return undefined;
   return (await response.json()) as GiroCode;
 }
+
+export interface DatevExport {
+  filename: string;
+  encoding: string;
+  bookings: number;
+  chart: string;
+  skipped: Array<{ id: string; reason: string }>;
+  contentBase64: string;
+}
+
+export async function exportDatev(body: {
+  from: string;
+  to: string;
+  beraterNumber: number;
+  mandantNumber: number;
+  chart?: string;
+}): Promise<{ ok: true; export: DatevExport } | { ok: false; error: string }> {
+  const token = await currentSession();
+  if (!token) return { ok: false, error: "unauthorized" };
+
+  const response = await fetch(`${API_URL}/v1/exports/datev`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+    return { ok: false, error: detail.message ?? detail.error ?? "export_failed" };
+  }
+  return { ok: true, export: (await response.json()) as DatevExport };
+}

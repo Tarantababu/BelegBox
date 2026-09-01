@@ -35,6 +35,9 @@ importers:
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../../packages/core-invoice
+      '@belegbox/datev':
+        specifier: workspace:*
+        version: link:../../packages/datev
       '@belegbox/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -133,6 +136,8 @@ importers:
       fast-xml-parser:
         specifier: ^4.5.1
         version: 4.5.7
+
+  packages/datev: {}
 
   packages/db:
     dependencies:

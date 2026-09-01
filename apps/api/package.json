@@ -24,6 +24,7 @@
     "@fastify/cors": "^10.0.1",
     "@belegbox/auth": "workspace:*",
     "@belegbox/mail": "workspace:*",
-    "@belegbox/payments": "workspace:*"
+    "@belegbox/payments": "workspace:*",
+    "@belegbox/datev": "workspace:*"
   }
 }
