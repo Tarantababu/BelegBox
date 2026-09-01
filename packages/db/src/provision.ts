@@ -115,22 +115,53 @@ try {
     await assertRlsEnforced(app);
     console.log("  isolation  row level security is binding on this connection");
 
-    // The append-only guarantee, checked rather than assumed: a GRANT widened
-    // by mistake would leave the archive rewritable with nothing to notice.
+    // The immutability guarantees, checked rather than assumed - and checked as
+    // two different things, because they are two different things.
+    //
+    // An earlier version of this ran an UPDATE against each table and accepted
+    // any error mentioning "append-only" as proof. The error it threw on
+    // failure said "... it must be append-only", so its own catch matched it
+    // and reported success. A check that cannot fail is worse than no check,
+    // because it is also reassuring.
     await app.withAdmin(async (client) => {
-      for (const table of ["audit_log", "archive_chain", "documents"]) {
-        try {
-          await client.query(`UPDATE ${table} SET tenant_id = tenant_id WHERE false`);
-          throw new Error(
-            `${table} accepted an UPDATE from ${APP_ROLE}; it must be append-only.`,
-          );
-        } catch (err) {
-          const message = (err as Error).message;
-          if (!/permission denied|append-only/i.test(message)) throw err;
+      // Grant-level: these hold nothing but history, so the application role is
+      // given INSERT and SELECT and nothing else. Read from the catalogue
+      // rather than probed with a statement, so an empty table cannot pass by
+      // matching no rows.
+      const { rows: writable } = await client.query<{ table_name: string; privs: string }>(
+        `SELECT table_name, string_agg(privilege_type, ',' ORDER BY privilege_type) AS privs
+           FROM information_schema.role_table_grants
+          WHERE grantee = $1
+            AND table_name IN ('audit_log', 'archive_chain', 'verfahrensdokumentationen')
+            AND privilege_type IN ('UPDATE', 'DELETE')
+          GROUP BY table_name`,
+        [APP_ROLE],
+      );
+      if (writable.length > 0) {
+        throw new Error(
+          `append-only broken: ${APP_ROLE} holds ${writable
+            .map((row) => `${row.privs} on ${row.table_name}`)
+            .join("; ")}`,
+        );
+      }
+
+      // Trigger-level: `documents` is deliberately not append-only by grant -
+      // the worker updates a document's status and verdict while processing it.
+      // What must hold is that an archived row cannot be rewritten and no row
+      // can be deleted, and that is enforced by triggers.
+      const { rows: triggers } = await client.query<{ tgname: string; enabled: string }>(
+        `SELECT tgname, tgenabled AS enabled
+           FROM pg_trigger
+          WHERE tgrelid = 'documents'::regclass AND NOT tgisinternal`,
+      );
+      const live = triggers.filter((row) => row.enabled !== "D").map((row) => row.tgname);
+      for (const required of ["documents_archived_immutable", "documents_no_delete"]) {
+        if (!live.includes(required)) {
+          throw new Error(`archive immutability broken: trigger ${required} is missing or disabled`);
         }
       }
     });
-    console.log("  archive    append-only holds for the application role");
+    console.log("  archive    history append-only by grant, documents immutable by trigger");
   } finally {
     await app.close();
   }
