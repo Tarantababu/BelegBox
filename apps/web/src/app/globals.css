@@ -211,3 +211,10 @@ p.ok {
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
 .pager { display: flex; justify-content: space-between; align-items: center; }
+
+/* Manual upload on the inbox. Present but quiet: email is the normal path, and
+   this must not read as the primary one. */
+.uploader { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-bottom: 1px solid var(--rule); }
+.uploader label { font-size: 13px; color: var(--ink2); }
+.uploader input[type="file"] { font-family: var(--sans); font-size: 13px; flex: 1; min-width: 180px; }
+.uploader .hint { flex-basis: 100%; margin: 0; }

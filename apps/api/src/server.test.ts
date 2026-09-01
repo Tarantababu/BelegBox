@@ -102,3 +102,93 @@ describe("health", () => {
     expect(res.json().features).toMatchObject({ belegBundle: false, explanations: false });
   });
 });
+
+describe("manual upload", () => {
+  const tenant = async () => ({ tenantId: randomUUID(), kind: "session" as const });
+
+  /** Records what was put, so a test can assert nothing was archived. */
+  const store = () => {
+    const puts: string[] = [];
+    return {
+      puts,
+      store: {
+        put: async (input: { key: string }) => {
+          puts.push(input.key);
+          return { key: input.key, alreadyExisted: false };
+        },
+        get: async () => Buffer.alloc(0),
+        head: async () => ({ key: "", sizeBytes: 0 }),
+      } as never,
+    };
+  };
+
+  it("is not registered without somewhere to put the bytes", async () => {
+    app = await buildApi({ db: stubDb([]), authenticate: tenant });
+    const res = await app.inject({ url: "/v1/documents/upload", method: "POST", payload: {} });
+    expect(res.statusCode).toBe(404);
+  });
+
+  /**
+   * Upload deliberately differs from email here. A document that arrived by
+   * email is kept whatever it turns out to be, because it arrived and § 14b
+   * applies. An upload is someone choosing a file, and the wrong choice must
+   * not land in an archive that Object Lock keeps for ten years.
+   */
+  it("refuses a file with no invoice in it, and archives nothing", async () => {
+    const { puts, store: objectStore } = store();
+    app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });
+
+    const res = await app.inject({
+      url: "/v1/documents/upload",
+      method: "POST",
+      headers: { "content-type": "application/xml", "x-belegbox-filename": "notiz.xml" },
+      payload: '<?xml version="1.0"?><notes><n>hello</n></notes>',
+    });
+
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toBe("no_invoice");
+    // The important half: nothing reached the archive.
+    expect(puts).toEqual([]);
+  });
+
+  it("refuses an empty body", async () => {
+    const { store: objectStore } = store();
+    app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });
+    const res = await app.inject({
+      url: "/v1/documents/upload",
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      payload: "",
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("reads a body the browser mislabelled as text/plain", async () => {
+    // Fastify's built-in text/plain parser hands the handler a string, and an
+    // .xml labelled text/plain by the operating system was reported as an
+    // empty body until this route replaced that parser.
+    const { store: objectStore } = store();
+    app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });
+
+    const res = await app.inject({
+      url: "/v1/documents/upload",
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      payload: "not an invoice",
+    });
+    // 422 rather than 400: the bytes arrived and were looked at.
+    expect(res.statusCode).toBe(422);
+  });
+
+  it("leaves JSON routes on the default parser", async () => {
+    // The text/plain override must not turn into a wildcard that eats JSON.
+    app = await buildApi({ db: stubDb([]), authenticate: tenant });
+    const res = await app.inject({
+      url: "/v1/exports/datev",
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      payload: { from: "2026-08-01", to: "2026-08-31" },
+    });
+    expect(res.json().error).toBe("beraterNumber and mandantNumber are required");
+  });
+});

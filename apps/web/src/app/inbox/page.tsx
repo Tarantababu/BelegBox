@@ -32,7 +32,7 @@ function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
 export default async function Inbox({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; fehler?: string }>;
 }) {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
@@ -51,6 +51,30 @@ export default async function Inbox({
   return (
     <div className="shell">
       <Chrome tenantName={tenant.name} current={params.status === "clean" ? "archive" : "inbox"} />
+
+      {params.fehler ? (
+        <div className="pad" style={{ paddingBottom: 0 }}>
+          <p className="alert">{params.fehler}</p>
+        </div>
+      ) : null}
+
+      {/* Documents normally arrive by email. Until inbound mail is configured
+          this is the only way in, and it stays useful afterwards for the
+          invoice that came on a USB stick. */}
+      <form
+        className="pad uploader"
+        method="post"
+        action="/inbox/upload"
+        encType="multipart/form-data"
+      >
+        <label htmlFor="file">Rechnung hochladen</label>
+        <input id="file" name="file" type="file" accept=".xml,.pdf,application/xml,text/xml,application/pdf" required />
+        <button className="btn" type="submit">Prüfen</button>
+        <p className="hint">
+          XRechnung (XML) oder ZUGFeRD/Factur-X (PDF). Die Datei wird
+          unverändert archiviert, wie eine per E-Mail eingegangene.
+        </p>
+      </form>
 
       <div className="stats">
         <div className="stat">

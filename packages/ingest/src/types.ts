@@ -29,7 +29,12 @@ export interface RawAttachment {
 export interface InboundMessage {
   /** The provider's own id, used for idempotent webhook redelivery. */
   providerMessageId: string;
-  provider: "postmark" | "mailgun";
+  /**
+   * "upload" is a real source, not a stand-in: a file handed to the API
+   * directly goes through this same pipeline, and recording it as though it had
+   * arrived from a mail provider would misstate how the document was received.
+   */
+  provider: "postmark" | "mailgun" | "upload";
   /** RFC 5322 Message-ID, stored on the document (`documents.message_id`). */
   messageId?: string;
   /** Envelope recipient - the address that actually routed here. */

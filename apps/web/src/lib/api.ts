@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-const API_URL = process.env["API_URL"] ?? "http://localhost:8082";
+export const API_URL = process.env["API_URL"] ?? "http://localhost:8082";
 
 export const SESSION_COOKIE = "belegbox_session";
 

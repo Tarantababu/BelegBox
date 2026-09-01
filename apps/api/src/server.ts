@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import type { EmailSender } from "@belegbox/mail";
 import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
+import type { RuleSet } from "@belegbox/rules-engine";
 import type { ObjectStore } from "@belegbox/storage";
 import { MustangClient } from "@belegbox/validation";
 import { registerDatevRoutes } from "./datev.js";
@@ -13,6 +14,7 @@ import { registerPaymentRoutes } from "./payments.js";
 import { registerRoutes, STATUSES } from "./routes.js";
 import { registerBelegeRoutes } from "./belege.js";
 import { registerSearchRoutes } from "./search.js";
+import { registerUploadRoutes } from "./upload.js";
 import { registerVerfahrensdokuRoutes } from "./verfahrensdoku.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,6 +59,8 @@ export interface ApiOptions {
    * the worker owns the writing path.
    */
   objectStore?: ObjectStore;
+  /** Tenant rules applied to an uploaded document, as the worker applies them. */
+  ruleSet?: RuleSet;
 }
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
@@ -238,6 +242,16 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   // archived objects, the other states the storage configuration as fact.
   if (opts.objectStore) {
     registerBelegeRoutes(app, { db: opts.db, storage: opts.objectStore, resolveTenant });
+    registerUploadRoutes(app, {
+      db: opts.db,
+      storage: opts.objectStore,
+      resolveTenant,
+      ...(opts.ruleSet ? { ruleSet: opts.ruleSet } : {}),
+      ...(opts.storage?.objectLockMode
+        ? { retentionMode: opts.storage.objectLockMode as "GOVERNANCE" | "COMPLIANCE" }
+        : {}),
+      ...(opts.storage?.retentionYears ? { retentionYears: opts.storage.retentionYears } : {}),
+    });
   }
   if (opts.storage) {
     registerVerfahrensdokuRoutes(app, {

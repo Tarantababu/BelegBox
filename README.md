@@ -146,6 +146,29 @@ Payment details come from the parsed invoice, never from the caller. An endpoint
 that accepted an IBAN as input would happily encode one an attacker chose — and
 D-008 exists because a swapped IBAN is the commonest shape of invoice fraud.
 
+## Getting a document in
+
+Invoices arrive at the tenant's inbox address, and that is the path that
+carries sender authentication — SPF, DKIM and DMARC are recorded with the
+document, because the mailbox is where a forged invoice with a swapped IBAN
+enters.
+
+There is also a manual upload on the inbox screen, because inbound mail needs a
+provider and DNS, and until those exist a deployed instance cannot receive
+anything at all. It reuses the whole ingest pipeline rather than reimplementing
+it — same extraction, same PDF/A-3 embedded-XML handling, same size limit — and
+records `senderAuth` as `none` rather than inventing a pass on a document that
+will be read as evidence for ten years.
+
+**Upload is stricter than email, deliberately.** A file with nothing
+recognisable in it is refused instead of archived. Email must keep whatever
+arrives, because it arrived and § 14b applies to it; an upload is someone
+choosing a file, and the wrong choice would otherwise sit in an Object Lock
+archive for ten years with no way to remove it. The test is whether a document
+was *detected*, not whether it is legally an e-invoice — a ZUGFeRD MINIMUM is
+still accepted, since telling the user it is not a valid e-invoice is the whole
+of D-001.
+
 ## Searching the archive
 
 The failure that matters is not a slow search, it is an empty one. Ten years
