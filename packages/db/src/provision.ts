@@ -64,24 +64,31 @@ const owner = new Db(
 
 try {
   await owner.withAdmin(async (client) => {
-    // Quoted as a literal, not interpolated into the statement text: the
-    // password comes from an environment variable and a quote in it would
-    // otherwise end the string and run whatever follows.
-    const quoted = await client.query<{ literal: string }>("SELECT quote_literal($1) AS literal", [
-      password,
-    ]);
-    const literal = quoted.rows[0]?.literal as string;
+    const { rows: existing } = await client.query<{ n: string }>(
+      "SELECT count(*) AS n FROM pg_roles WHERE rolname = $1",
+      [APP_ROLE],
+    );
 
-    await client.query(`
-      DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${APP_ROLE}') THEN
-          CREATE ROLE ${APP_ROLE} LOGIN PASSWORD ${literal};
-        ELSE
-          ALTER ROLE ${APP_ROLE} LOGIN PASSWORD ${literal};
-        END IF;
-      END $$;
-    `);
-    console.log(`  role       ${APP_ROLE} ready`);
+    if (Number(existing[0]?.n ?? 0) > 0) {
+      // Already there. On a managed platform the role is created by the
+      // provider - Fly's Managed Postgres, for one, creates it and refuses
+      // `ALTER ROLE ... PASSWORD` outright, because passwords are theirs to
+      // issue. Taking it as given is correct; the checks at the end still
+      // decide whether it is usable.
+      console.log(`  role       ${APP_ROLE} already exists, left as it is`);
+    } else {
+      // Quoted as a literal, not interpolated into the statement text: the
+      // password comes from an environment variable and a quote in it would
+      // otherwise end the string and run whatever follows.
+      const quoted = await client.query<{ literal: string }>(
+        "SELECT quote_literal($1) AS literal",
+        [password],
+      );
+      await client.query(
+        `CREATE ROLE ${APP_ROLE} LOGIN PASSWORD ${quoted.rows[0]?.literal as string}`,
+      );
+      console.log(`  role       ${APP_ROLE} created`);
+    }
 
     // Never NOSUPERUSER/NOBYPASSRLS as an afterthought - assert it instead,
     // below, where a wrong answer stops the deployment.
