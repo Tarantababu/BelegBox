@@ -37,6 +37,9 @@
     },
     {
       "path": "../../packages/mail"
+    },
+    {
+      "path": "../../packages/payments"
     }
   ]
 }

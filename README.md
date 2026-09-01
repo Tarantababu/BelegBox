@@ -50,8 +50,8 @@ roadmap does not mean its turn has come.
 | `packages/explain` | **Week 4.** Versioned templates, DE + TR, StBerG lint |
 | `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
 | `packages/mail` | **Wired.** Outbound mail port, Postmark and console senders |
+| `packages/payments` | **Week 5.** GiroCode (EPC-069-12), SEPA pain.001, IBAN validation |
 | `apps/web` | **Week 4-5.** Next.js. M-01 setup, M-02 inbox, M-03 detail |
-| `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
 | `apps/mobile` | F3 |
 
@@ -114,6 +114,35 @@ RLS binds a role that cannot step around it, so `belegbox_app` owns no tables,
 is not a superuser, and holds no `BYPASSRLS` — asserted by a test, because
 someone will eventually want to grant one of those to unblock a migration.
 Details in [packages/db/README.md](packages/db/README.md).
+
+## Preparing a payment
+
+Belegbox produces payment data. The user carries it to their own bank.
+
+That distinction is the whole design. Initiating a payment on someone's behalf
+is a Zahlungsauslösedienst under ZAG § 1 Abs. 1 Nr. 7 — BaFin authorisation and
+50.000 EUR of capital. So there is a GiroCode to scan and a `pain.001` file to
+upload, no account credentials are held, no money moves through anything here,
+and the heading says *vorbereiten*, never *bezahlen*.
+
+**The QR is a real one.** The v2 prototype drew a deterministic module pattern
+with three finder squares: convincing on screen, unscannable. The test decodes
+the rendered code back to its payload, which is the only assertion that would
+have caught that. ECC level M, because EPC-069-12 requires it.
+
+**The payload is twelve elements**, not the prototype's eleven, with the
+beneficiary name truncated at 70 characters and a hard 331-byte ceiling. Nothing
+reaches the encoder unvalidated: a bad IBAN is refused rather than encoded,
+because a QR that scans into a banking app with a wrong account is discovered on
+a payment screen.
+
+**Both pain.001 versions.** The PRD names `.09`; many German portals still take
+only `.03`. A file the user's bank rejects is not a smaller failure than no file,
+so the format is theirs to choose.
+
+Payment details come from the parsed invoice, never from the caller. An endpoint
+that accepted an IBAN as input would happily encode one an attacker chose — and
+D-008 exists because a swapped IBAN is the commonest shape of invoice fraud.
 
 ## The archive
 

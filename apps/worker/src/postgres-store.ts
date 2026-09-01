@@ -170,6 +170,7 @@ export class PostgresDocumentStore implements DocumentStore {
           totalGross: invoice?.totals.taxInclusive ?? null,
           totalNet: invoice?.totals.taxExclusive ?? null,
           totalVat: invoice?.totals.taxTotal ?? null,
+          parsed: invoice ?? null,
         });
 
         // A duplicate already carries its findings from the first delivery;

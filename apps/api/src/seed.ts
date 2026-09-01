@@ -133,6 +133,7 @@ try {
         totalGross: invoice?.totals.taxInclusive ?? null,
         totalNet: invoice?.totals.taxExclusive ?? null,
         totalVat: invoice?.totals.taxTotal ?? null,
+        parsed: invoice ?? null,
       });
       documents += 1;
 

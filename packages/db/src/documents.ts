@@ -28,6 +28,12 @@ export interface InsertDocumentInput {
   totalGross?: number | null;
   totalNet?: number | null;
   totalVat?: number | null;
+  /**
+   * The normalised invoice. Everything downstream that needs a field the
+   * summary columns do not carry - the payment account, the line items - reads
+   * it from here rather than re-parsing the raw bytes.
+   */
+  parsed?: unknown;
 }
 
 export interface DocumentRow {
@@ -52,6 +58,7 @@ export interface DocumentRow {
   archived_at: Date | null;
   archive_hash: string | null;
   received_at: Date;
+  parsed: unknown;
 }
 
 /**
@@ -73,7 +80,7 @@ export async function insertDocument(
        doc_type_code, corrects_document_id, sender_auth, message_id,
        issued_at, due_at, received_at,
        supplier_name, supplier_vat_id, invoice_number,
-       total_gross, total_net, total_vat
+       total_gross, total_net, total_vat, parsed
      ) VALUES (
        $1, $2, $3, $4,
        $5, $6, $7, $8, $9,
@@ -81,7 +88,7 @@ export async function insertDocument(
        $15, $16, $17, $18,
        $19, $20, COALESCE($21::timestamptz, now()),
        $22, $23, $24,
-       $25, $26, $27
+       $25, $26, $27, $28
      )
      ON CONFLICT (tenant_id, raw_sha256) DO NOTHING
      RETURNING id`,
@@ -113,6 +120,9 @@ export async function insertDocument(
       input.totalGross ?? null,
       input.totalNet ?? null,
       input.totalVat ?? null,
+      input.parsed === undefined || input.parsed === null
+        ? null
+        : JSON.stringify(input.parsed),
     ],
   );
 

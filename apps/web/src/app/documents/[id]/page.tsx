@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getDocument, getTenant, type Finding } from "../../../lib/api";
 import { STATUS_META, VERDICT_META } from "../../../lib/status";
 import { Chrome } from "../../nav";
+import { PaymentPanel } from "./payment";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +149,8 @@ export default async function DocumentDetail({
           </p>
         ) : null}
       </div>
+
+      <PaymentPanel id={doc.id} locale={tenant.locale} />
 
       {[...errors, ...warnings, ...rest].map((finding) => (
         <FindingCard key={finding.id} finding={finding} locale={tenant.locale} />

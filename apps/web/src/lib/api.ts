@@ -55,6 +55,17 @@ export interface Finding {
   versions: { validatorConfig: string; engine: string; ruleset: number | null };
 }
 
+export interface GiroCode {
+  payload: string;
+  svg: string;
+  byteLength: number;
+  beneficiary: string;
+  iban: string;
+  amount: number;
+  reference: string;
+  disclaimer: { de: string; tr: string };
+}
+
 export interface DocumentDetail {
   id: string;
   status: DocumentStatus;
@@ -215,4 +226,22 @@ export async function confirmPasswordReset(body: {
   if (response.ok) return { ok: true };
   const detail = (await response.json().catch(() => ({}))) as { error?: string };
   return { ok: false, error: detail.error ?? "invalid_or_expired_token" };
+}
+
+/**
+ * Payment data for one document.
+ *
+ * Returns undefined when the invoice carries no account or amount - a document
+ * that cannot be paid is an ordinary case, not an error.
+ */
+export async function getGiroCode(id: string): Promise<GiroCode | undefined> {
+  const token = await currentSession();
+  if (!token) return undefined;
+
+  const response = await fetch(`${API_URL}/v1/documents/${id}/girocode`, {
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return undefined;
+  return (await response.json()) as GiroCode;
 }

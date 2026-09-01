@@ -6,6 +6,7 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import type { EmailSender } from "@belegbox/mail";
 import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
+import { registerPaymentRoutes } from "./payments.js";
 import { registerRoutes } from "./routes.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -153,6 +154,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
         : {}),
       ...(opts.inboxDomain ? { inboxDomain: opts.inboxDomain } : {}),
     });
+    registerPaymentRoutes(app, { db: opts.db, resolveTenant });
   }
 
   return app;
