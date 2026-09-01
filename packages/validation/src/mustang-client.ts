@@ -46,6 +46,22 @@ export interface MustangClientOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * What the running sidecar says it is.
+ *
+ * Asked rather than assumed. A constant compiled into the Node process would
+ * describe the sidecar we think is deployed; this describes the one that
+ * actually judged the documents, which is the only version worth writing into
+ * a Verfahrensdokumentation.
+ */
+export interface MustangHealth {
+  status: string;
+  validatorConfigVersion: string;
+  validatorConfigSha256: string;
+  kositVersion: string;
+  mustangVersion: string;
+}
+
 export class MustangClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
@@ -59,6 +75,21 @@ export class MustangClient {
     ).replace(/\/$/, "");
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.fetchImpl = opts.fetchImpl ?? fetch;
+  }
+
+  async health(): Promise<MustangHealth> {
+    const url = `${this.baseUrl}/health`;
+    try {
+      const res = await this.fetchImpl(url, {
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!res.ok) {
+        throw new Error(`mustang-svc responded ${res.status} ${res.statusText}`);
+      }
+      return (await res.json()) as MustangHealth;
+    } catch (cause) {
+      throw new MustangUnavailableError(url, cause);
+    }
   }
 
   async validate(req: MustangValidateRequest): Promise<MustangValidateResponse> {

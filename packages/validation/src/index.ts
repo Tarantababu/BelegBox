@@ -15,6 +15,7 @@ export {
 export type {
   MustangClientOptions,
   MustangFinding,
+  MustangHealth,
   MustangValidateRequest,
   MustangValidateResponse,
 } from "./mustang-client.js";

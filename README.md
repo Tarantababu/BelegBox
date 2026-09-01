@@ -51,8 +51,9 @@ roadmap does not mean its turn has come.
 | `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
 | `packages/mail` | **Wired.** Outbound mail port, Postmark and console senders |
 | `packages/payments` | **Week 5.** GiroCode (EPC-069-12), SEPA pain.001, IBAN validation |
-| `apps/web` | **Week 4-6.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-06 export |
+| `apps/web` | **Week 4-7.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-06 export, M-11 Verfahrensdokumentation |
 | `packages/datev` | **Week 6.** EXTF Buchungsstapel writer, chart of accounts |
+| `packages/verfahrensdoku` | **Week 7.** GoBD Verfahrensdokumentation, generated from the running system |
 | `apps/mobile` | F3 |
 
 ## Receiving mail
@@ -177,6 +178,51 @@ assumption.
 Documents that are not e-invoices are skipped with a reason rather than booked
 on a guess. The export is in every paid tier — the PRD makes that a deliberate
 difference from the competitor, who puts it behind their top plan.
+
+## The Verfahrensdokumentation
+
+The document a Betriebsprüfer asks for, and the one place where generating
+boilerplate would actively hurt the user.
+
+GoBD Rz. 151-155 require the *business* to describe its own tax-relevant
+processes. In an audit the business is held to that description, not to
+Belegbox's marketing. Belegbox can therefore only generate the part of the
+process that runs inside Belegbox, and two rules follow.
+
+**Every statement names its source.** Each fact carries where it was read -
+`tenants.retention_policy`, `archive_chain`, `versions.properties`,
+`@belegbox/storage` - and the rendered page prints that source in a column
+beside the value. A sentence nobody can trace back to a column is an assertion,
+and this document exists to be evidence. Same discipline as R-2 on findings.
+
+**Where Belegbox cannot see, it asks instead of filling in.** Paper invoices,
+the till, who releases a payment, what happens after the DATEV export: thirteen
+open items, each with the reason it cannot be answered automatically. The
+document prints as a draft until they are answered. Boilerplate covering a
+process the business does not actually follow is worse evidence than a blank,
+because it is a written statement an auditor can disprove.
+
+**It never certifies.** Whether a process satisfies the GoBD is a judgement for
+the Steuerberatung or Wirtschaftsprüfung. `lint.ts` refuses "GoBD-konform",
+"revisionssicher", "erfüllt die Anforderungen" and their neighbours at build
+time, for the reason the StBerG lint exists: those sentences read well and
+would survive a proofread. The lint judges the *authored* words only - a
+business called "Rechtssicher GmbH" is entitled to its name, so prose keeps its
+literal parts separate from the data spliced into it.
+
+**Versions of the system, and versions of itself.** The validator versions come
+from the running sidecar rather than a constant, because this Node process
+cannot see which configuration the JVM loaded - and a separate fact reports the
+versions that *actually judged this tenant's documents*, read off the stored
+findings. That is the question an auditor asks: not what "formally correct"
+would mean today, but what it meant when the invoice arrived.
+
+The document itself is kept the same way. Rz. 154 wants a change history and
+the retention of superseded fassungen, so `verfahrensdokumentationen` is
+append-only like `audit_log`, and each fassung names the hash of the one before
+it - the archive day chain's construction, for the same reason. The hash runs
+over the content, not the rendered HTML: a changed margin must not look like a
+changed process.
 
 ## The archive
 
@@ -414,6 +460,10 @@ Scaffolded on a machine with no JDK and no Docker, so:
 - Every version in `services/mustang-svc/versions.properties` reads `UNPINNED`.
   Pinning them against a resolved build is F1 week 1 and blocks storing any
   verdict (R-2).
+- **The Verfahrensdokumentation renders to HTML, not PDF/A.** The page is
+  print-ready and carries no external asset, but the conversion to PDF/A-3 and
+  the archiving of the fassung under Object Lock are not wired. Until they are,
+  the fassung is retained in PostgreSQL only.
 - **The DATEV column list is transcribed, not checked.** `packages/datev`
   writes 124 captions on the second header line, and DATEV matches each row's
   width against that line. The surrounding structure is right — two header

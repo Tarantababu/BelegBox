@@ -6,9 +6,11 @@ import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import { buildAuthenticator, handleLogin, handleLogout, type Principal } from "./auth.js";
 import type { EmailSender } from "@belegbox/mail";
 import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
+import { MustangClient } from "@belegbox/validation";
 import { registerDatevRoutes } from "./datev.js";
 import { registerPaymentRoutes } from "./payments.js";
 import { registerRoutes } from "./routes.js";
+import { registerVerfahrensdokuRoutes } from "./verfahrensdoku.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,6 +35,18 @@ export interface ApiOptions {
   webUrl?: string;
   /** Development only: return the reset link in the response. */
   revealResetLink?: boolean;
+  /**
+   * How the archive is actually stored, for the Verfahrensdokumentation.
+   *
+   * Passed in rather than assumed: the document states the bucket and the
+   * Object Lock mode as fact, and a wrong one is a false statement in evidence.
+   */
+  storage?: {
+    backend: string;
+    bucket: string;
+    objectLockMode: string | null;
+    retentionYears: number;
+  };
 }
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
@@ -40,6 +54,8 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   const authenticate = opts.authenticate ?? buildAuthenticator(opts.db);
   const resolveTenant = async (request: FastifyRequest): Promise<string | undefined> =>
     (await authenticate(request))?.tenantId;
+  const resolveUser = async (request: FastifyRequest): Promise<string | undefined> =>
+    (await authenticate(request))?.userId ?? undefined;
 
   if (opts.corsOrigins && opts.corsOrigins.length > 0) {
     // An explicit list, never a reflected origin. The API answers with tenant
@@ -157,6 +173,15 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     });
     registerPaymentRoutes(app, { db: opts.db, resolveTenant });
     registerDatevRoutes(app, { db: opts.db, resolveTenant });
+    if (opts.storage) {
+      registerVerfahrensdokuRoutes(app, {
+        db: opts.db,
+        mustang: new MustangClient(),
+        storage: opts.storage,
+        resolveTenant,
+        resolveUser,
+      });
+    }
   }
 
   return app;

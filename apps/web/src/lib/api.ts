@@ -281,3 +281,60 @@ export async function exportDatev(body: {
   }
   return { ok: true, export: (await response.json()) as DatevExport };
 }
+
+export interface DokuVersion {
+  version: number;
+  contentHash: string;
+  previousHash: string | null;
+  openItems: number;
+  complete: boolean;
+  generatedAt: string;
+}
+
+export interface DokuList {
+  versions: DokuVersion[];
+  chain: { ok: true } | { ok: false; brokenAt: number };
+}
+
+export async function listVerfahrensdoku(): Promise<DokuList | null> {
+  const token = await currentSession();
+  if (!token) return null;
+
+  const response = await fetch(`${API_URL}/v1/verfahrensdokumentation`, {
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as DokuList;
+}
+
+export async function generateVerfahrensdoku(): Promise<
+  { ok: true; version: number } | { ok: false; error: string }
+> {
+  const token = await currentSession();
+  if (!token) return { ok: false, error: "unauthorized" };
+
+  const response = await fetch(`${API_URL}/v1/verfahrensdokumentation`, {
+    method: "POST",
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: detail.error ?? "generate_failed" };
+  }
+  const body = (await response.json()) as { version: number };
+  return { ok: true, version: body.version };
+}
+
+export async function fetchVerfahrensdokuHtml(version: number): Promise<string | null> {
+  const token = await currentSession();
+  if (!token) return null;
+
+  const response = await fetch(`${API_URL}/v1/verfahrensdokumentation/${version}`, {
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return await response.text();
+}

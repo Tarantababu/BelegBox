@@ -11,6 +11,7 @@ import {
 } from "./archive-store.js";
 import { countDocuments, getDocument, insertDocument } from "./documents.js";
 import { migrate } from "./migrate.js";
+import { insertDoku, listDoku, verifyDokuChain } from "./verfahrensdoku-store.js";
 
 /**
  * These need a real PostgreSQL: Row Level Security, FORCE, triggers and grants
@@ -222,6 +223,64 @@ suite("append-only tables", () => {
         tx.query("DELETE FROM audit_log WHERE tenant_id = $1", [tenantA]),
       ),
     ).rejects.toThrow(/permission denied|append-only/i);
+  });
+
+  /**
+   * The Verfahrensdokumentation is evidence about the process, so the history
+   * of its fassungen is itself evidence. A table that let a fassung be edited
+   * would destroy exactly what GoBD Rz. 154 asks to be kept.
+   */
+  it("keeps every fassung of the Verfahrensdokumentation", async () => {
+    const hashA = "a".repeat(64);
+    const hashB = "b".repeat(64);
+
+    await app.withTenant(tenantA, async (tx) => {
+      await insertDoku(tx, {
+        version: 1,
+        contentHash: hashA,
+        prevHash: null,
+        facts: { tenant: "a" },
+        html: "<p>Fassung 1</p>",
+        openItems: 13,
+        complete: false,
+      });
+      await insertDoku(tx, {
+        version: 2,
+        contentHash: hashB,
+        prevHash: hashA,
+        facts: { tenant: "a" },
+        html: "<p>Fassung 2</p>",
+        openItems: 12,
+        complete: false,
+      });
+    });
+
+    await expect(
+      app.withTenant(tenantA, (tx) =>
+        tx.query("UPDATE verfahrensdokumentationen SET html = 'tampered'"),
+      ),
+    ).rejects.toThrow(/permission denied|append-only/i);
+
+    await expect(
+      app.withTenant(tenantA, (tx) => tx.query("DELETE FROM verfahrensdokumentationen")),
+    ).rejects.toThrow(/permission denied|append-only/i);
+
+    const chain = await app.withTenant(tenantA, async (tx) => verifyDokuChain(await listDoku(tx)));
+    expect(chain).toEqual({ ok: true });
+  });
+
+  it("refuses a fassung that does not chain to its predecessor", async () => {
+    // The database enforces the shape; verifyDokuChain catches the rest.
+    await expect(
+      app.withTenant(tenantA, (tx) =>
+        tx.query(
+          `INSERT INTO verfahrensdokumentationen
+             (tenant_id, version, content_hash, prev_hash, facts, html, open_items, complete)
+           VALUES (current_tenant_id(), 9, $1, NULL, '{}'::jsonb, '<p/>', 0, true)`,
+          ["c".repeat(64)],
+        ),
+      ),
+    ).rejects.toThrow(/chain_start/i);
   });
 
   /**

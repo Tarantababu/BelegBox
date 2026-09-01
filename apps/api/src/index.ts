@@ -46,6 +46,17 @@ const app = await buildApi({
   secureCookies: process.env["INSECURE_COOKIES"] !== "true",
   mail,
   webUrl: process.env["WEB_URL"] ?? "http://localhost:3000",
+  // The same environment the worker writes from, read here so the
+  // Verfahrensdokumentation states the storage that is actually in use rather
+  // than the one the document would like to describe.
+  storage: {
+    backend: process.env["S3_BUCKET_RAW"] ? "S3" : "Dateisystem",
+    bucket: process.env["S3_BUCKET_RAW"] ?? (process.env["ARCHIVE_DIR"] ?? "lokales Verzeichnis"),
+    objectLockMode: process.env["S3_BUCKET_RAW"]
+      ? (process.env["S3_OBJECT_LOCK_MODE"] ?? "GOVERNANCE")
+      : null,
+    retentionYears: Number(process.env["RETENTION_YEARS"] ?? 10),
+  },
   // Never in production: the link is the credential.
   revealResetLink:
     process.env["NODE_ENV"] !== "production" && process.env["REVEAL_RESET_LINK"] === "true",

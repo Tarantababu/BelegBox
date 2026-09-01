@@ -70,3 +70,12 @@ export {
   utcDay,
   type ArchiveProof,
 } from "./archive-store.js";
+export {
+  getDokuHtml,
+  insertDoku,
+  latestDoku,
+  listDoku,
+  verifyDokuChain,
+  type DokuVersionRow,
+  type StoreDokuInput,
+} from "./verfahrensdoku-store.js";

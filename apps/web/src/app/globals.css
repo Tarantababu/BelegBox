@@ -177,3 +177,31 @@ table.led tr:last-child td { border-bottom: 0; }
 table.led td:first-child { color: var(--ink2); }
 table.led td:last-child { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; word-break: break-all; padding-left: 10px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Fassungen of the Verfahrensdokumentation. A history, so it reads as rows in
+   a register rather than as cards: the version number and the hash are what a
+   reader compares down the column. */
+table.vers { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.vers th, table.vers td {
+  padding: 9px 18px; border-bottom: 1px solid var(--rule);
+  text-align: left; vertical-align: baseline;
+}
+table.vers thead th {
+  font-size: 11.5px; font-weight: 500; color: var(--ink3);
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+table.vers td:first-child, table.vers th:first-child { font-variant-numeric: tabular-nums; }
+table.vers td.mono { font-family: var(--mono); font-size: 12px; color: var(--ink2); }
+table.vers td:last-child { text-align: right; }
+table.vers a { color: var(--petrol); }
+
+.alert {
+  font-size: 13px; color: var(--brick); background: var(--paper);
+  border-left: 3px solid var(--brick); border-radius: 0 3px 3px 0;
+  padding: 9px 12px; margin: 0;
+}
+p.ok {
+  font-size: 13px; color: var(--petrol); background: var(--paper);
+  border-left: 3px solid var(--petrol); border-radius: 0 3px 3px 0;
+  padding: 9px 12px; margin: 0;
+}

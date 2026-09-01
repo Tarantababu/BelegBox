@@ -36,6 +36,9 @@
       "path": "../../packages/validation"
     },
     {
+      "path": "../../packages/verfahrensdoku"
+    },
+    {
       "path": "../../packages/mail"
     },
     {

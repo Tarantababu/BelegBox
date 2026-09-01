@@ -24,6 +24,8 @@ public final class App {
         server.createContext("/health", ex -> respond(ex, 200,
                 "{\"status\":\"ok\","
                         + "\"validatorConfigVersion\":" + Json.string(Versions.validatorConfigVersion()) + ","
+                        + "\"validatorConfigSha256\":" + Json.string(Versions.validatorConfigSha256()) + ","
+                        + "\"kositVersion\":" + Json.string(Versions.kositVersion()) + ","
                         + "\"mustangVersion\":" + Json.string(Versions.mustangVersion()) + "}"));
         // com.sun.net.httpserver swallows a handler exception and closes the
         // connection with no response and no log line. The caller sees "empty

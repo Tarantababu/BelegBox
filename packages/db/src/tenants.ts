@@ -18,9 +18,11 @@ export interface TenantRow {
   slug: string;
   vat_id: string | null;
   tax_number: string | null;
+  country: string;
   industry: string | null;
   locale: string;
   created_at: Date;
+  retention_policy: { invoices_years: number; vouchers_years: number };
 }
 
 export interface CreatedTenant {
@@ -82,7 +84,9 @@ export async function createTenant(
 
 export async function getTenant(tx: TenantClient): Promise<TenantRow | undefined> {
   const { rows } = await tx.query<TenantRow>(
-    "SELECT id, name, slug, vat_id, tax_number, industry, locale, created_at FROM tenants WHERE id = $1",
+    `SELECT id, name, slug, vat_id, tax_number, country, industry, locale,
+            retention_policy, created_at
+       FROM tenants WHERE id = $1`,
     [tx.tenantId],
   );
   return rows[0];

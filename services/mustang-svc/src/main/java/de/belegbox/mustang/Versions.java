@@ -37,4 +37,21 @@ public final class Versions {
     public static String mustangVersion() {
         return PROPS.getProperty("mustang.library.version", "UNPINNED");
     }
+
+    public static String kositVersion() {
+        return PROPS.getProperty("kosit.validationtool.version", "UNPINNED");
+    }
+
+    /**
+     * The digest of the validator configuration this service is running.
+     *
+     * Reported rather than left to the caller because the caller cannot see
+     * which configuration was actually loaded. The Verfahrensdokumentation
+     * states this digest as evidence of what "formally correct" meant on the
+     * day a document was judged, so it has to come from the process holding the
+     * files, not from a constant compiled in somewhere else.
+     */
+    public static String validatorConfigSha256() {
+        return PROPS.getProperty("validator.config.sha256", "UNPINNED");
+    }
 }
