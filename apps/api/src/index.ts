@@ -1,5 +1,5 @@
 import { loadTemplateDir } from "@belegbox/explain";
-import { Db, createPool } from "@belegbox/db";
+import { Db, assertRlsEnforced, createPool } from "@belegbox/db";
 import { buildApi } from "./server.js";
 
 const url = process.env["DATABASE_URL"];
@@ -9,6 +9,13 @@ if (!url) {
 }
 
 const db = new Db(createPool(url));
+
+// Before anything else. Serving tenant data over a connection that bypasses RLS
+// is the worst failure this system has, and it looks completely normal from the
+// outside - every screen renders, every number is plausible, and they belong to
+// somebody else.
+await assertRlsEnforced(db);
+
 const explain = await loadTemplateDir();
 
 const app = await buildApi({

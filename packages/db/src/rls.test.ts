@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { verifyChain, verifyEntryProof } from "@belegbox/archive";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Db, createPool } from "./client.js";
+import { assertRlsEnforced, RlsBypassError } from "./guard.js";
 import {
   archiveDocument,
   chainLinks,
@@ -406,5 +407,39 @@ suite("migrations", () => {
     const result = await admin.withAdmin((client) => migrate(client));
     expect(result.applied).toHaveLength(0);
     expect(result.skipped.length).toBeGreaterThan(0);
+  });
+});
+
+suite("RLS enforcement guard", () => {
+  beforeAll(bootstrap, 60_000);
+  afterAll(async () => {
+    await app?.close();
+    await admin?.close();
+  });
+
+  /**
+   * Found by running the product, not by testing it. The suite above already
+   * asserted that belegbox_app is not a superuser - and the API was still
+   * pointed at the postgres superuser in development, so every tenant saw every
+   * other tenant's documents while the screen looked entirely convincing.
+   *
+   * The test checked the role. Nothing checked the connection.
+   */
+  it("refuses a superuser connection", async () => {
+    await expect(assertRlsEnforced(admin)).rejects.toThrow(RlsBypassError);
+    await expect(assertRlsEnforced(admin)).rejects.toThrow(/superuser/);
+  });
+
+  it("accepts the application role", async () => {
+    await expect(assertRlsEnforced(app)).resolves.toBeUndefined();
+  });
+
+  it("refuses a role granted BYPASSRLS", async () => {
+    await admin.withAdmin((c) => c.query("ALTER ROLE belegbox_app BYPASSRLS"));
+    try {
+      await expect(assertRlsEnforced(app)).rejects.toThrow(/BYPASSRLS/);
+    } finally {
+      await admin.withAdmin((c) => c.query("ALTER ROLE belegbox_app NOBYPASSRLS"));
+    }
   });
 });

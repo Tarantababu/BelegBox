@@ -47,7 +47,7 @@ roadmap does not mean its turn has come.
 | `packages/rules-engine` | **Week 3.** YAML → AST → evaluator, dry-run harness |
 | `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
 | `packages/explain` | **Week 4.** Versioned templates, DE + TR, StBerG lint |
-| `apps/web` | Week 4-5. Next.js, consumes `/v1` |
+| `apps/web` | **Week 4-5.** Next.js. M-01 setup, M-02 inbox, M-03 detail |
 | `packages/payments` | Week 5-6. EPC-QR, pain.001 |
 | `packages/datev` | Week 5-6. EXTF writer |
 | `apps/mobile` | F3 |
@@ -143,6 +143,24 @@ advice **unwriteable**:
 Every template ships `approved: false` until a lawyer reviews the wording
 (Ek A). Production refuses to render an unapproved one; the CLI renders them and
 says so.
+
+## Running the whole thing
+
+```bash
+DATABASE_URL=postgres://postgres@localhost:5432/belegbox pnpm --filter @belegbox/api seed
+DATABASE_URL=postgres://belegbox_app:belegbox@localhost:5432/belegbox pnpm --filter @belegbox/api start
+pnpm --filter @belegbox/web dev
+```
+
+Note the two different roles. The seeder provisions tenants and runs
+migrations, which needs the owner connection. **The API must not use it.**
+
+The API refuses to start against a role that can bypass Row Level Security —
+superuser or `BYPASSRLS`. That check exists because pointing it at the
+`postgres` superuser during development silently disabled tenant isolation, and
+the screens rendered another tenant's invoices without a hint that anything was
+wrong. A test already asserted `belegbox_app` had no such privileges; nothing
+had checked the connection the process actually opened.
 
 ## Two invariants
 
