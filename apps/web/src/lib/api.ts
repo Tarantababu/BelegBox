@@ -338,3 +338,31 @@ export async function fetchVerfahrensdokuHtml(version: number): Promise<string |
   if (!response.ok) return null;
   return await response.text();
 }
+
+export type SearchMode = "exact" | "similar" | "filtered";
+
+export interface ArchiveSearch {
+  mode: SearchMode;
+  total: number;
+  totalIsLowerBound: boolean;
+  limit: number;
+  offset: number;
+  amount: number | null;
+  documents: DocumentSummary[];
+}
+
+export async function searchArchive(params: Record<string, string>): Promise<ArchiveSearch | null> {
+  const token = await currentSession();
+  if (!token) return null;
+
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, value]) => value !== ""),
+  );
+
+  const response = await fetch(`${API_URL}/v1/documents/search?${query.toString()}`, {
+    headers: { cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}` },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as ArchiveSearch;
+}

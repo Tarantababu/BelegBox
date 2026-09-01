@@ -9,7 +9,8 @@ import { handleResetConfirm, handleResetRequest } from "./password-reset.js";
 import { MustangClient } from "@belegbox/validation";
 import { registerDatevRoutes } from "./datev.js";
 import { registerPaymentRoutes } from "./payments.js";
-import { registerRoutes } from "./routes.js";
+import { registerRoutes, STATUSES } from "./routes.js";
+import { registerSearchRoutes } from "./search.js";
 import { registerVerfahrensdokuRoutes } from "./verfahrensdoku.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -173,6 +174,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
     });
     registerPaymentRoutes(app, { db: opts.db, resolveTenant });
     registerDatevRoutes(app, { db: opts.db, resolveTenant });
+    registerSearchRoutes(app, { db: opts.db, resolveTenant, statuses: STATUSES });
     if (opts.storage) {
       registerVerfahrensdokuRoutes(app, {
         db: opts.db,

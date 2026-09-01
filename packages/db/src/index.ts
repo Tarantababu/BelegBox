@@ -79,3 +79,11 @@ export {
   type DokuVersionRow,
   type StoreDokuInput,
 } from "./verfahrensdoku-store.js";
+export {
+  parseAmount,
+  searchDocuments,
+  type SearchHit,
+  type SearchMode,
+  type SearchQuery,
+  type SearchResult,
+} from "./search.js";

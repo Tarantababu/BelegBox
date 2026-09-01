@@ -15,7 +15,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STATUSES = new Set(["clean", "form_error", "content_error", "not_einvoice", "pending"]);
+export const STATUSES = new Set(["clean", "form_error", "content_error", "not_einvoice", "pending"]);
 
 export interface RouteDeps {
   db: Db;

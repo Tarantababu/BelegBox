@@ -6,7 +6,7 @@ export function Chrome({
   current,
 }: {
   tenantName: string;
-  current: "inbox" | "archive" | "exports" | "doku";
+  current: "inbox" | "archive" | "exports" | "doku" | "archiv";
 }) {
   return (
     <header className="top">
@@ -28,6 +28,9 @@ export function Chrome({
         </Link>
         <Link href="/inbox?status=clean" aria-current={current === "archive" ? "page" : undefined}>
           Geprüft
+        </Link>
+        <Link href="/archiv" aria-current={current === "archiv" ? "page" : undefined}>
+          Archiv
         </Link>
         <Link href="/exports" aria-current={current === "exports" ? "page" : undefined}>
           DATEV-Export

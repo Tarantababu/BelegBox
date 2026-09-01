@@ -22,6 +22,14 @@ export async function migrate(
   client: PoolClient,
   dir = MIGRATIONS_DIR,
 ): Promise<{ applied: string[]; skipped: string[] }> {
+  // Extensions the migrations themselves depend on. 0003 indexes with
+  // gin_trgm_ops, so a fresh database without pg_trgm failed there - a long
+  // way from anything that looks like a missing extension. Created here
+  // because this function is the installer, and forward-only means the fix
+  // cannot go into 0003 where the need first appears.
+  await client.query("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+  await client.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+
   await client.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name       text PRIMARY KEY,

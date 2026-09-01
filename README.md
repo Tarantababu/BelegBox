@@ -43,7 +43,7 @@ roadmap does not mean its turn has come.
 | `apps/worker` | **Wired.** Inbound webhook, WORM archive, validation, PostgreSQL |
 | `packages/storage` | **Wired.** S3 Object Lock, with the undeletability proof |
 | `packages/archive` | **Week 2.** RFC 6962 Merkle tree, day chain, inclusion proofs |
-| `packages/db` | **Week 2.** Schema, RLS, append-only enforcement, archive writer |
+| `packages/db` | **Week 2-7.** Schema, RLS, append-only enforcement, archive writer, archive search |
 | `apps/api` | **Week 2.** Fastify `/v1`, archive proof endpoint |
 | `packages/rules-engine` | **Week 3.** YAML → AST → evaluator, dry-run harness |
 | `rulesets` | **Week 3.** `gastro-de`, `handwerk-bau-de` |
@@ -51,7 +51,7 @@ roadmap does not mean its turn has come.
 | `packages/auth` | **Wired.** Passwords, sessions, API keys, TOTP |
 | `packages/mail` | **Wired.** Outbound mail port, Postmark and console senders |
 | `packages/payments` | **Week 5.** GiroCode (EPC-069-12), SEPA pain.001, IBAN validation |
-| `apps/web` | **Week 4-7.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-06 export, M-11 Verfahrensdokumentation |
+| `apps/web` | **Week 4-7.** Next.js. M-01 setup, M-02 inbox, M-03 detail, M-05 archive, M-06 export, M-11 Verfahrensdokumentation |
 | `packages/datev` | **Week 6.** EXTF Buchungsstapel writer, chart of accounts |
 | `packages/verfahrensdoku` | **Week 7.** GoBD Verfahrensdokumentation, generated from the running system |
 | `apps/mobile` | F3 |
@@ -144,6 +144,52 @@ so the format is theirs to choose.
 Payment details come from the parsed invoice, never from the caller. An endpoint
 that accepted an IBAN as input would happily encode one an attacker chose — and
 D-008 exists because a swapped IBAN is the commonest shape of invoice fraud.
+
+## Searching the archive
+
+The failure that matters is not a slow search, it is an empty one. Ten years
+in, a user who searches for an invoice and sees nothing concludes it never
+arrived, and books, pays or disputes on that basis. Everything here follows
+from that.
+
+**The same supplier is written six ways.** Between a Turkish keyboard, a German
+one, and neither:
+
+    Şahin Döner   Sahin Doner   Sahin Doener
+    Müller        Muller        Mueller
+
+German folding expands (`ö` → `oe`), Turkish folding strips (`ö` → `o`), and
+they disagree. Picking one loses the other, so `search_text` holds both foldings
+of supplier, invoice number and VAT id, and the query is matched against both.
+All six spellings reach the same row.
+
+The folding is `translate` over a fixed character set, not `unaccent()`.
+`unaccent` is STABLE — it depends on a dictionary that can change under an
+index — and wrapping it as IMMUTABLE to satisfy the generated-column check
+would be a lie the planner believes. The case fold is explicit for the same
+kind of reason: `lower()` is collation-dependent, and under a C locale it left
+`Şahin` as `Şahin`, folding only the lowercase half of a name. Rows written
+under one `lc_ctype` would never match a query normalised under another.
+
+**A near match is never presented as an exact one.** When nothing matches
+exactly the search falls back to trigram `word_similarity` and *says so* — the
+screen reads "keine genaue Übereinstimmung, Belege mit ähnlicher Schreibweise",
+and only a genuinely empty archive gets "kein Beleg … auch keiner mit ähnlicher
+Schreibweise". `word_similarity` rather than `similarity`, because
+`search_text` carries every field twice and a short query scored against the
+whole string comes out near zero however well it matches the name inside it.
+
+**The total is counted, but not without limit.** A search reports how many
+documents match in the whole archive, not how many are on the page — otherwise
+a page of 25 out of 900 reads as 25. But a precise total means visiting every
+match, and "GmbH" matches most of a ten-year archive, so counting stops at 1000
+and the result says the figure is a floor. On 60.000 rows that took the count
+from 26 ms to 2 ms.
+
+A period means the document's own issue date (BT-2), never when it happened to
+arrive — a Steuerberater asking for 2025 means invoices dated 2025. A query
+that parses as an amount also matches on the total, in German notation:
+`4.200,00` is four thousand two hundred.
 
 ## The DATEV export
 
