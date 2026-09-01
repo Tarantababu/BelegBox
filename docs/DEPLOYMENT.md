@@ -34,44 +34,51 @@ So a working deployment is:
 
 ### 1. Database
 
-Create the database, then run the migrations from a machine that can reach it:
+One command, run once, as the database owner:
 
 ```bash
-DATABASE_URL='postgres://...' pnpm --filter @belegbox/db migrate
+DATABASE_URL='postgres://<owner>:<pw>@<host>/<db>' \
+APP_DB_PASSWORD="$(node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))")" \
+pnpm --filter @belegbox/db provision
 ```
 
-The migrator creates `pgcrypto` and `pg_trgm` itself. On a managed provider the
-connecting role needs to be allowed to create extensions — on Neon and Supabase
-the default owner is.
+**Order matters, and it is not the obvious one.** Migration 0002 grants
+privileges to `belegbox_app`, so the role has to exist *before* the migrations
+run. Running `migrate` first on a virgin database fails with
+`role "belegbox_app" does not exist` — which never shows up locally, because the
+Docker init script or a test run has already created the role. `provision` does
+it in the right order.
 
-Then create the application role. **The API must not connect as the owner or as
-a superuser**: `audit_log`, `archive_chain`, `documents` and
-`verfahrensdokumentationen` are append-only by grant as well as by trigger, and
-Row Level Security does not bind a superuser at all. `assertRlsEnforced()`
-refuses to start against such a connection, which is the check that caught this
-in development.
+It then does the thing worth having: it connects **as `belegbox_app`** and
+proves the result. Row Level Security has to be binding on that connection, and
+`audit_log`, `archive_chain` and `documents` have to refuse an UPDATE from it.
+Every step before that can succeed while the outcome is still wrong — an
+owner-owned connection, a `BYPASSRLS` granted to unblock something — and tenant
+isolation would be off with nothing saying so. If the role can bypass RLS,
+provisioning stops and says why.
 
-```sql
-CREATE ROLE belegbox_app LOGIN PASSWORD '...';
-GRANT CONNECT ON DATABASE belegbox TO belegbox_app;
-GRANT USAGE ON SCHEMA public TO belegbox_app;
--- The migrations grant the per-table privileges, including the deliberate
--- absence of UPDATE and DELETE on the append-only tables.
-```
+`APP_DB_PASSWORD` has no default. A default is how `belegbox` reaches
+production, and the role it protects holds every tenant's invoices.
 
-Point `DATABASE_URL` at that role, not at the owner.
+**The API must never connect as the owner or a superuser.** `audit_log`,
+`archive_chain`, `documents` and `verfahrensdokumentationen` are append-only by
+grant as well as by trigger, and RLS does not bind a superuser at all.
+`assertRlsEnforced()` refuses to start against such a connection.
+
+**On Neon**, run `provision` against the direct (non-pooled) endpoint — creating
+a role and running DDL wants a real session — then point the API and worker at
+the **pooled** endpoint (`-pooler` in the host). `withTenant` scopes the tenant
+with `set_config(..., true)`, which is transaction-local, so it is already
+correct behind PgBouncer in transaction mode where a session-level `SET` would
+leak one tenant's scope onto the next request.
 
 **Connection sizing.** `max` is per process and PostgreSQL counts across all of
 them; four API replicas at 10 each is 40 before migrations or a console session.
-Use the provider's pooled endpoint (Neon's `-pooler` host, Supabase's port 6543)
-and keep `max` small. `withTenant` scopes the tenant with
-`set_config(..., true)` — transaction-local — so it is already correct behind
-PgBouncer in transaction mode, where a session-level `SET` would leak one
-tenant's scope onto the next request.
+Keep it small and let the pooler do the work.
 
-TLS is on automatically for any non-loopback host, with certificate
-verification enabled. If your provider needs its own CA, pass `sslmode` and
-`sslrootcert` in the URL rather than disabling verification.
+TLS is on automatically for any non-loopback host, with certificate verification
+enabled. If your provider needs its own CA, pass `sslmode` and `sslrootcert` in
+the URL rather than disabling verification.
 
 ### 2. Object storage
 
