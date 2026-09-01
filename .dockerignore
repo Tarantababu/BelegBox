@@ -10,3 +10,5 @@ docs
 corpus
 **/*.test.ts
 services/mustang-svc/target
+services/mustang-svc/validator-config
+services/mustang-svc/schemas

@@ -95,9 +95,16 @@ which also means a mistake is permanent for ten years.
 ### 3. mustang-svc
 
 ```bash
-flyctl launch --config fly.mustang.toml --no-deploy   # first time only
-flyctl deploy --config fly.mustang.toml
+flyctl apps create belegbox-mustang --org personal    # first time only
+flyctl deploy --config fly.mustang.toml --remote-only
 ```
+
+Every image builds with the **repository root** as its context, including this
+one — the Dockerfile's paths are `services/mustang-svc/...` for that reason.
+Fly ties the build context to the working directory and resolves `dockerfile`
+relative to the config, so a service-relative Dockerfile deployed from the root
+picks up the wrong file and fails on a `COPY` that looks unrelated. One context
+for all three beats a special case that only appears mid-deploy.
 
 The validator configuration is fetched and digest-checked **during the image
 build** and baked in. It is not in the repository — it is a 40 MB third-party

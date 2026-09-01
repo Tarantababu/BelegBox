@@ -1,9 +1,13 @@
 # The KoSIT validator.
+#
+# Paths are relative to the repository root, because that is the build context
+# Fly uses for every app here. One context for all three images beats a special
+# case that only shows up as a confusing "not found" during a deploy.
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /build
-COPY pom.xml versions.properties ./
-COPY src ./src
+COPY services/mustang-svc/pom.xml services/mustang-svc/versions.properties ./
+COPY services/mustang-svc/src ./src
 RUN mvn -q -B package -DskipTests
 
 # The validator configuration, fetched and digest-checked at build time.
@@ -21,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl unzip bash \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /svc
-COPY scripts/fetch-validator-config.sh scripts/
+COPY services/mustang-svc/scripts/fetch-validator-config.sh scripts/
 RUN bash scripts/fetch-validator-config.sh \
  && test -f validator-config/scenarios.xml
 
