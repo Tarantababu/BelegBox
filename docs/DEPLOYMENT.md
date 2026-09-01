@@ -95,22 +95,55 @@ which also means a mistake is permanent for ten years.
 ### 3. mustang-svc
 
 ```bash
-docker build -t belegbox-mustang services/mustang-svc
+flyctl launch --config fly.mustang.toml --no-deploy   # first time only
+flyctl deploy --config fly.mustang.toml
 ```
+
+The validator configuration is fetched and digest-checked **during the image
+build** and baked in. It is not in the repository — it is a 40 MB third-party
+release — and it is not optional either: without it the service starts, answers
+`/health` with `ok`, and returns a form verdict of `unknown` for every document
+ever sent to it. Nothing downstream can tell that apart from a validator with
+nothing to say, which is why the build fails instead if `scenarios.xml` is
+missing.
+
+`fly.mustang.toml` has **no `services` block on purpose**. The validator is
+reachable only over Fly's private network as `belegbox-mustang.internal`; it has
+no authentication of its own and must never be public. The service binds `::`
+rather than the wildcard, because that private network is IPv6-only and a
+process listening on IPv4 alone is unreachable by name while looking perfectly
+healthy.
+
+It also stays always-on. This is a JVM loading the KoSIT scenarios and their
+Schematron transforms, which takes several seconds, and the client gives up at
+20 — a suspended machine turns the first validation after a quiet period into
+`unknown` on a document that is perfectly valid.
 
 Before it is worth deploying, pin the versions. Every value in
 `services/mustang-svc/versions.properties` that reads `UNPINNED` must name a
-resolved build — requirement R-2 stores those versions on every finding so a
-2026 verdict can be re-derived in 2033, and `UNPINNED` makes that impossible.
-Run `services/mustang-svc/scripts/fetch-validator-config.sh` to install the
-validator configuration; the script verifies its digest.
+resolved build — R-2 stores those versions on every finding so a 2026 verdict
+can be re-derived in 2033, and `UNPINNED` makes that impossible.
 
 ### 4. API and worker
 
 ```bash
-docker build --build-arg APP=api    -t belegbox-api .
-docker build --build-arg APP=worker -t belegbox-worker .
+flyctl launch --config fly.api.toml    --no-deploy    # first time only
+flyctl launch --config fly.worker.toml --no-deploy
+
+flyctl secrets set --app belegbox-api \
+  DATABASE_URL='postgres://belegbox_app:...@ep-...-pooler.../belegbox' \
+  S3_BUCKET_RAW=... S3_REGION=eu-central-1 \
+  S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=... \
+  WEB_URL=https://... CORS_ORIGINS=https://... INBOX_DOMAIN=...
+
+flyctl deploy --config fly.api.toml
+flyctl deploy --config fly.worker.toml
 ```
+
+`DATABASE_URL` must name `belegbox_app` and use the **pooled** endpoint. The API
+calls `assertRlsEnforced()` before it listens, so a connection that can bypass
+Row Level Security stops the deploy rather than serving one tenant's invoices to
+another.
 
 Point the platform's health check at **`/health/ready`**, not `/health`.
 `/health` is liveness and deliberately does not touch the database — a liveness

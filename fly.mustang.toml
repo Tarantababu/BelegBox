@@ -1,0 +1,29 @@
+# The KoSIT validator.
+#
+# Deliberately has no `services` block: it is reachable only over Fly's private
+# network, as belegbox-mustang.internal. It takes an XML document and answers
+# with a verdict, it has no authentication of its own, and it must never be a
+# public endpoint - anyone who could reach it could use it as a free validation
+# service, or as an XML parser to point at.
+
+app = "belegbox-mustang"
+primary_region = "fra"
+
+[build]
+  dockerfile = "services/mustang-svc/Dockerfile"
+
+[env]
+  PORT = "8081"
+
+# Always on. This is a JVM loading the KoSIT scenarios and their Schematron
+# transforms, which takes several seconds; the client's call times out at 20.
+# A suspended machine would turn the first validation after a quiet period into
+# a form verdict of "unknown" on a document that is perfectly valid.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+[processes]
+  app = ""
+
+# No auto_stop: correctness costs less than the machine does.

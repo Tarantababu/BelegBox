@@ -20,7 +20,16 @@ public final class App {
         Path configDir = Path.of(System.getenv().getOrDefault("VALIDATOR_CONFIG_DIR", "validator-config"));
         Validators validators = new Validators(configDir);
 
-        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        // Bound explicitly, not with the wildcard constructor.
+        //
+        // Fly's private network is IPv6 only, and a service reachable as
+        // <app>.internal has to be listening on an IPv6 address. The wildcard
+        // form usually gives a dual-stack socket, but "usually" depends on the
+        // JVM's IPv6 support in the container, and the failure mode is a
+        // validator that starts, answers health checks, and cannot be reached
+        // by the API at all.
+        String bind = System.getenv().getOrDefault("BIND_ADDR", "::");
+        HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
         server.createContext("/health", ex -> respond(ex, 200,
                 "{\"status\":\"ok\","
                         + "\"validatorConfigVersion\":" + Json.string(Versions.validatorConfigVersion()) + ","
@@ -49,7 +58,7 @@ public final class App {
 
         // Printed at boot so the pinned configuration is visible in the logs of
         // every environment that ever produced a verdict (R-2).
-        System.out.println("mustang-svc listening on :" + port);
+        System.out.println("mustang-svc listening on [" + bind + "]:" + port);
         System.out.println("  validator config : " + Versions.validatorConfigVersion());
         System.out.println("  mustang library  : " + Versions.mustangVersion());
         System.out.println("  config dir       : " + configDir.toAbsolutePath());

@@ -27,7 +27,14 @@ trap 'rm -rf "$tmp"' EXIT
 echo "fetching $ASSET"
 curl -fsSL -o "$tmp/config.zip" "$URL"
 
-actual="$(shasum -a 256 "$tmp/config.zip" | cut -d' ' -f1)"
+# sha256sum on Linux, shasum on macOS. The image builds are Debian, the
+# developer machines are not, and the digest check must run on both - a
+# verification step that silently is not there is worse than none.
+if command -v sha256sum >/dev/null 2>&1; then
+  actual="$(sha256sum "$tmp/config.zip" | cut -d' ' -f1)"
+else
+  actual="$(shasum -a 256 "$tmp/config.zip" | cut -d' ' -f1)"
+fi
 if [ "$actual" != "$SHA256" ]; then
   echo "checksum mismatch for $ASSET" >&2
   echo "  expected $SHA256" >&2

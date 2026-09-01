@@ -1,0 +1,67 @@
+# The API.
+#
+# Frankfurt, and not by preference: these are German invoices carrying personal
+# data, kept for ten years under § 14b UStG. Keeping them in the EU is the
+# default a GDPR record of processing can actually justify, and moving an
+# archive between regions later is not a thing anyone wants to do.
+
+app = "belegbox-api"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[build.args]
+  APP = "api"
+
+[env]
+  PORT = "8082"
+  NODE_ENV = "production"
+  # Private networking: the validator is not on the public internet. See
+  # fly.mustang.toml - it has no `services` block for exactly this reason.
+  MUSTANG_SVC_URL = "http://belegbox-mustang.internal:8081"
+  # Unreviewed legal wording must not reach a user. § 2-5 StBerG reserve tax
+  # advice to Steuerberater, and the templates are not approved yet.
+  ALLOW_UNAPPROVED_TEMPLATES = "false"
+  RETENTION_YEARS = "10"
+  # COMPLIANCE cannot be lifted by anyone, including the account root, until the
+  # retain-until date passes. That is the property GoBD needs, and the one that
+  # makes a mistake permanent for ten years.
+  S3_OBJECT_LOCK_MODE = "COMPLIANCE"
+
+[http_service]
+  internal_port = 8082
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # One machine always up. A cold start on the first request of the morning is
+  # survivable; a cold start while a Steuerberater waits on a year of Belege is
+  # not, and the bundle endpoint reads every object in the period.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    # Readiness, not liveness. /health answers 200 whatever the database is
+    # doing - by design, since a liveness probe that fails during an outage
+    # restarts every replica and turns a recoverable outage into a crash loop.
+    path = "/health/ready"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Secrets are set out of band and never live here:
+#
+#   flyctl secrets set --app belegbox-api \
+#     DATABASE_URL='postgres://belegbox_app:...@ep-...-pooler.../belegbox' \
+#     S3_BUCKET_RAW=... S3_REGION=eu-central-1 \
+#     S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=... \
+#     POSTMARK_TOKEN=... MAIL_FROM=no-reply@... \
+#     WEB_URL=https://... CORS_ORIGINS=https://... INBOX_DOMAIN=...
+#
+# DATABASE_URL must be the *pooled* endpoint and must name belegbox_app, never
+# the database owner: RLS does not bind a superuser at all, and the API refuses
+# to start against a connection that can bypass it.

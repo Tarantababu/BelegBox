@@ -39,8 +39,10 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm turbo run build --filter=@belegbox/api --filter=@belegbox/worker
 
-# Drops dev dependencies from the image that actually ships.
-RUN pnpm prune --prod
+# No `pnpm prune --prod` here. It would shrink the image, but its behaviour at
+# the root of a workspace full of linked packages is not something this repo has
+# verified, and a runtime image missing a package it silently removed fails at
+# startup rather than at build time. Size is the cheaper problem.
 
 
 FROM node:24-slim AS runtime
