@@ -6,8 +6,11 @@
     xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
     xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
+    <ram:BusinessProcessSpecifiedDocumentContextParameter>
+      <ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>
+    </ram:BusinessProcessSpecifiedDocumentContextParameter>
     <ram:GuidelineSpecifiedDocumentContextParameter>
-      <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0</ram:ID>
+      <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</ram:ID>
     </ram:GuidelineSpecifiedDocumentContextParameter>
   </rsm:ExchangedDocumentContext>
   <rsm:ExchangedDocument>
@@ -38,11 +41,17 @@
       <ram:BuyerReference>SD-2026-FLEISCH</ram:BuyerReference>
       <ram:SellerTradeParty>
         <ram:Name>Şahin Fleisch GmbH</ram:Name>
+        <ram:DefinedTradeContact>
+          <ram:PersonName>Buchhaltung</ram:PersonName>
+          <ram:TelephoneUniversalCommunication><ram:CompleteNumber>+49 721 0000000</ram:CompleteNumber></ram:TelephoneUniversalCommunication>
+          <ram:EmailURIUniversalCommunication><ram:URIID>rechnung@sahin-fleisch-beispiel.de</ram:URIID></ram:EmailURIUniversalCommunication>
+        </ram:DefinedTradeContact>
         <ram:PostalTradeAddress>
           <ram:PostcodeCode>76185</ram:PostcodeCode>
           <ram:CityName>Karlsruhe</ram:CityName>
           <ram:CountryID>DE</ram:CountryID>
         </ram:PostalTradeAddress>
+        <ram:URIUniversalCommunication><ram:URIID schemeID="EM">rechnung@sahin-fleisch-beispiel.de</ram:URIID></ram:URIUniversalCommunication>
         <ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">DE100000006</ram:ID></ram:SpecifiedTaxRegistration>
       </ram:SellerTradeParty>
       <ram:BuyerTradeParty>
@@ -52,14 +61,19 @@
           <ram:CityName>Karlsruhe</ram:CityName>
           <ram:CountryID>DE</ram:CountryID>
         </ram:PostalTradeAddress>
+        <ram:URIUniversalCommunication><ram:URIID schemeID="EM">sahin-doener-a7f31c9d@belegbox.de</ram:URIID></ram:URIUniversalCommunication>
       </ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
-    <ram:ApplicableHeaderTradeDelivery/>
+    <ram:ApplicableHeaderTradeDelivery>
+      <ram:ActualDeliverySupplyChainEvent>
+        <ram:OccurrenceDateTime><udt:DateTimeString format="102">20260828</udt:DateTimeString></ram:OccurrenceDateTime>
+      </ram:ActualDeliverySupplyChainEvent>
+    </ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
       <ram:SpecifiedTradeSettlementPaymentMeans>
         <ram:TypeCode>58</ram:TypeCode>
-        <ram:PayeePartyCreditorFinancialAccount><ram:IBANID>DE21660501010008123456</ram:IBANID></ram:PayeePartyCreditorFinancialAccount>
+        <ram:PayeePartyCreditorFinancialAccount><ram:IBANID>DE85660501010008123456</ram:IBANID></ram:PayeePartyCreditorFinancialAccount>
       </ram:SpecifiedTradeSettlementPaymentMeans>
       <ram:ApplicableTradeTax>
         <ram:CalculatedAmount>45.79</ram:CalculatedAmount>

@@ -87,6 +87,15 @@ export async function validateDocument(
     const reason = "Skipped by caller.";
     l1 = empty(reason);
     l2 = empty(reason);
+    formVerdict = "unknown";
+  } else if (detection.profile.legalClass === "not_einvoice") {
+    // Running the XRechnung schema over a ZUGFeRD MINIMUM document is a
+    // category error: it is not an e-invoice, so "schema invalid" is neither
+    // news nor useful. D-001 has already said the thing worth saying.
+    const reason = `Profile ${detection.profile.name} is not an e-invoice; the form check does not apply.`;
+    l1 = empty(reason);
+    l2 = empty(reason);
+    formVerdict = "n_a";
   } else {
     const client = opts.client ?? new MustangClient();
     try {

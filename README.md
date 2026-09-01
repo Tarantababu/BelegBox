@@ -37,7 +37,7 @@ roadmap does not mean its turn has come.
 | `packages/core-invoice` | **Sprint 0.** Format, syntax and profile detection, including the ZUGFeRD profile legality check (D-001) |
 | `packages/validation` | **Sprint 0.** Layered pipeline, mustang-svc client, verdict derivation |
 | `apps/cli` | **Sprint 0.** `belegbox validate` |
-| `services/mustang-svc` | **Sprint 0.** JVM sidecar. L1 XSD implemented, L2 KoSIT wiring is week 2-3 |
+| `services/mustang-svc` | **Wired.** JVM sidecar running the official KoSIT validator, configuration pinned |
 | `corpus` | **Sprint 0.** Seven hand-authored fixtures with committed snapshots |
 | `packages/ingest` | **Week 1.** Provider adapters, sender authentication, PDF/A-3 extraction, inbox addressing |
 | `apps/worker` | **Week 1.** Inbound webhook, idempotency, write-once object store |
@@ -87,6 +87,32 @@ RLS binds a role that cannot step around it, so `belegbox_app` owns no tables,
 is not a superuser, and holds no `BYPASSRLS` — asserted by a test, because
 someone will eventually want to grant one of those to unblock a migration.
 Details in [packages/db/README.md](packages/db/README.md).
+
+## The form verdict
+
+```bash
+cd services/mustang-svc && ./scripts/fetch-validator-config.sh && mvn package
+java -jar target/mustang-svc.jar
+MUSTANG_SVC_URL=http://localhost:8081 pnpm validate corpus/broken-br-co-15-01.xml
+```
+
+L1 and L2 are the **official KoSIT validator** — the same engine the ZRE and
+OZG-RE portals run — with the XRechnung 3.0.2 configuration pinned by release
+tag *and* SHA-256. A release replaced in place fails the checksum rather than
+quietly changing what "valid" means, which is what R-2 asks for.
+
+Both layers come from one engine because the configuration defines both: the
+scenario picks the XSD for the syntax and the Schematron for the CIUS.
+
+The two verdicts on the corpus, from the real validator:
+
+| Fixture | Form (KoSIT) | Content (Belegbox) |
+|---|---|---|
+| `broken-br-co-15-01` | **fail** — BR-CO-15, BT-112 | pass |
+| `gastro-beverage-7pct-01` | **pass** | **fail** — 48,04 € |
+
+The second row is the product. The official validator passes that invoice
+completely.
 
 ## The two content layers
 
@@ -209,8 +235,6 @@ tax rule nobody checked.
 
 Scaffolded on a machine with no JDK and no Docker, so:
 
-- `services/mustang-svc` has **not been compiled or run**. The CI `jvm` job
-  builds it, boots it and probes `/health`; that is the first real check.
 - `docker-compose.yml` has not been brought up. The database suite was verified
   against a throwaway PostgreSQL 16 cluster instead, and runs in CI against a
   service container.

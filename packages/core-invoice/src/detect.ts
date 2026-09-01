@@ -54,7 +54,7 @@ function resolveFormat(
 ): DocumentFormat {
   const urn = profileUrn.toLowerCase();
 
-  if (urn.includes("urn:xoev-de:kosit:standard:xrechnung")) {
+  if (urn.includes("kosit:standard:xrechnung") || urn.includes("kosit:xrechnung")) {
     return syntax === "ubl" ? "xrechnung_ubl" : "xrechnung_cii";
   }
   if (urn.includes("factur-x.eu")) return "zugferd";

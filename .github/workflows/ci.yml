@@ -48,6 +48,28 @@ jobs:
             exit 1
           fi
 
+      # The form verdict, from the tool the public portals run. Without this the
+      # dual verdict is half unproven.
+      - name: Set up Java for the validator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Start mustang-svc and validate against the real KoSIT engine
+        run: |
+          cd services/mustang-svc
+          ./scripts/fetch-validator-config.sh
+          mvn -q -B package
+          java -jar target/mustang-svc.jar &
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8081/health >/dev/null && break
+            sleep 1
+          done
+          cd ../..
+          MUSTANG_SVC_URL=http://localhost:8081 pnpm --filter @belegbox/validation exec vitest run
+
       # Every explanation must carry the disclaimer. Rendering is what proves
       # it, since the disclaimer is appended by the renderer and cannot be
       # switched off by a template.
@@ -106,18 +128,21 @@ jobs:
           java-version: "21"
           cache: maven
 
+      # Verifies the release digest. A configuration replaced in place fails
+      # here rather than silently changing what "valid" means.
+      - name: Fetch the pinned KoSIT validator configuration
+        run: ./scripts/fetch-validator-config.sh
+
       - run: mvn -B package
 
-      # The service must boot and answer, and its log must name the pinned
-      # validator configuration - that pin is what makes a verdict reproducible.
       - name: Boot and probe
         run: |
           java -jar target/mustang-svc.jar &
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             curl -fsS http://localhost:8081/health && break
             sleep 1
           done
-          curl -fsS http://localhost:8081/health | tee /dev/stderr | grep -q validatorConfigVersion
+          curl -fsS http://localhost:8081/health | tee /dev/stderr | grep -q 'v20'
 
       - name: Reject an oversized body
         run: |

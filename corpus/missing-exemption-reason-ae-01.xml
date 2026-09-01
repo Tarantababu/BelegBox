@@ -8,7 +8,7 @@
 <ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
              xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
              xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
-  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0</cbc:CustomizationID>
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</cbc:CustomizationID>
   <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
   <cbc:ID>YE-2026-0231</cbc:ID>
   <cbc:IssueDate>2026-08-20</cbc:IssueDate>
@@ -30,6 +30,11 @@
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity><cbc:RegistrationName>Yılmaz Elektrotechnik GmbH</cbc:RegistrationName></cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name>Buchhaltung</cbc:Name>
+        <cbc:Telephone>+49 721 0000000</cbc:Telephone>
+        <cbc:ElectronicMail>rechnung@yilmaz-elektro-beispiel.de</cbc:ElectronicMail>
+      </cac:Contact>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
@@ -48,10 +53,13 @@
       <cac:PartyLegalEntity><cbc:RegistrationName>Bauunternehmung Reichert GmbH &amp; Co. KG</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2026-08-20</cbc:ActualDeliveryDate>
+  </cac:Delivery>
   <cac:PaymentMeans>
     <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
     <cbc:PaymentID>YE-2026-0231</cbc:PaymentID>
-    <cac:PayeeFinancialAccount><cbc:ID>DE21660501010008123456</cbc:ID></cac:PayeeFinancialAccount>
+    <cac:PayeeFinancialAccount><cbc:ID>DE85660501010008123456</cbc:ID></cac:PayeeFinancialAccount>
   </cac:PaymentMeans>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount>

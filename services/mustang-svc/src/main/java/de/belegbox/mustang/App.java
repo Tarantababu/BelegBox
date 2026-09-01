@@ -17,15 +17,32 @@ public final class App {
 
     public static void main(String[] args) throws IOException {
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8081"));
-        Path schemaDir = Path.of(System.getenv().getOrDefault("SCHEMA_DIR", "schemas"));
-        Validators validators = new Validators(schemaDir);
+        Path configDir = Path.of(System.getenv().getOrDefault("VALIDATOR_CONFIG_DIR", "validator-config"));
+        Validators validators = new Validators(configDir);
 
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/health", ex -> respond(ex, 200,
                 "{\"status\":\"ok\","
                         + "\"validatorConfigVersion\":" + Json.string(Versions.validatorConfigVersion()) + ","
                         + "\"mustangVersion\":" + Json.string(Versions.mustangVersion()) + "}"));
-        server.createContext("/validate", ex -> handleValidate(ex, validators));
+        // com.sun.net.httpserver swallows a handler exception and closes the
+        // connection with no response and no log line. The caller sees "empty
+        // reply from server" and has nothing to go on, so every handler is
+        // wrapped.
+        server.createContext("/validate", ex -> {
+            try {
+                handleValidate(ex, validators);
+            } catch (Throwable t) {
+                System.err.println("validate failed: " + t);
+                t.printStackTrace();
+                try {
+                    respond(ex, 500, "{\"error\":" + Json.string(String.valueOf(t)) + "}");
+                } catch (IOException ignored) {
+                    // The connection is already gone; the stack trace above is
+                    // the record that matters.
+                }
+            }
+        });
         server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
         // Printed at boot so the pinned configuration is visible in the logs of
@@ -33,7 +50,10 @@ public final class App {
         System.out.println("mustang-svc listening on :" + port);
         System.out.println("  validator config : " + Versions.validatorConfigVersion());
         System.out.println("  mustang library  : " + Versions.mustangVersion());
-        System.out.println("  schema dir       : " + schemaDir.toAbsolutePath());
+        System.out.println("  config dir       : " + configDir.toAbsolutePath());
+        if (!validators.isReady()) {
+            System.out.println("  WARNING          : " + validators.unavailableReason());
+        }
         server.start();
     }
 
@@ -56,11 +76,11 @@ public final class App {
             return;
         }
 
-        Validators.Result result = validators.validate(body);
+        Validators.Result2 result = validators.validate(body);
         respond(ex, 200, render(result));
     }
 
-    private static String render(Validators.Result r) {
+    private static String render(Validators.Result2 r) {
         StringBuilder sb = new StringBuilder(512);
         sb.append('{')
                 .append("\"validatorConfigVersion\":").append(Json.string(Versions.validatorConfigVersion())).append(',')

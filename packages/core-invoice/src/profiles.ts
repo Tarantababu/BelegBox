@@ -8,7 +8,16 @@ interface ProfileRule {
   cius?: string;
 }
 
-const XRECHNUNG_CIUS = "urn:xoev-de:kosit:standard:xrechnung";
+/**
+ * XRechnung identifies its CIUS by two different authorities.
+ *
+ * Up to 2.x it was `urn:xoev-de:kosit:standard:xrechnung`. Version 3.0 moved to
+ * `urn:xeinkauf.de:kosit:xrechnung`, and the official validator matches only
+ * the new form - a document carrying the old one matches no scenario at all and
+ * gets rejected without a single business rule being evaluated. Both are
+ * recognised here because both are in circulation.
+ */
+const XRECHNUNG_CIUS = ["urn:xoev-de:kosit:standard:xrechnung", "urn:xeinkauf.de:kosit:xrechnung"];
 
 /**
  * Order matters: the first match wins, so the two profiles that are NOT
@@ -28,7 +37,7 @@ const RULES: ProfileRule[] = [
     legalClass: "not_einvoice",
   },
   {
-    match: (u) => u.includes(XRECHNUNG_CIUS),
+    match: (u) => XRECHNUNG_CIUS.some((cius) => u.includes(cius)),
     name: "XRechnung",
     legalClass: "einvoice",
     cius: "xrechnung",

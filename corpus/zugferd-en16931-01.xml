@@ -6,6 +6,9 @@
     xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
     xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
+    <ram:BusinessProcessSpecifiedDocumentContextParameter>
+      <ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>
+    </ram:BusinessProcessSpecifiedDocumentContextParameter>
     <ram:GuidelineSpecifiedDocumentContextParameter>
       <ram:ID>urn:cen.eu:en16931:2017</ram:ID>
     </ram:GuidelineSpecifiedDocumentContextParameter>
@@ -37,21 +40,39 @@
     <ram:ApplicableHeaderTradeAgreement>
       <ram:SellerTradeParty>
         <ram:Name>Kaffee Röster Baden GmbH</ram:Name>
+        <ram:DefinedTradeContact>
+          <ram:PersonName>Buchhaltung</ram:PersonName>
+          <ram:TelephoneUniversalCommunication><ram:CompleteNumber>+49 721 0000000</ram:CompleteNumber></ram:TelephoneUniversalCommunication>
+          <ram:EmailURIUniversalCommunication><ram:URIID>rechnung@kaffee-roester-beispiel.de</ram:URIID></ram:EmailURIUniversalCommunication>
+        </ram:DefinedTradeContact>
         <ram:PostalTradeAddress>
           <ram:PostcodeCode>77933</ram:PostcodeCode>
           <ram:CityName>Lahr</ram:CityName>
           <ram:CountryID>DE</ram:CountryID>
         </ram:PostalTradeAddress>
+        <ram:URIUniversalCommunication><ram:URIID schemeID="EM">rechnung@kaffee-roester-beispiel.de</ram:URIID></ram:URIUniversalCommunication>
         <ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">DE100000008</ram:ID></ram:SpecifiedTaxRegistration>
       </ram:SellerTradeParty>
-      <ram:BuyerTradeParty><ram:Name>Şahin Döner GmbH</ram:Name></ram:BuyerTradeParty>
+      <ram:BuyerTradeParty>
+        <ram:Name>Şahin Döner GmbH</ram:Name>
+        <ram:PostalTradeAddress>
+          <ram:PostcodeCode>76133</ram:PostcodeCode>
+          <ram:CityName>Karlsruhe</ram:CityName>
+          <ram:CountryID>DE</ram:CountryID>
+        </ram:PostalTradeAddress>
+        <ram:URIUniversalCommunication><ram:URIID schemeID="EM">sahin-doener-a7f31c9d@belegbox.de</ram:URIID></ram:URIUniversalCommunication>
+      </ram:BuyerTradeParty>
     </ram:ApplicableHeaderTradeAgreement>
-    <ram:ApplicableHeaderTradeDelivery/>
+    <ram:ApplicableHeaderTradeDelivery>
+      <ram:ActualDeliverySupplyChainEvent>
+        <ram:OccurrenceDateTime><udt:DateTimeString format="102">20260819</udt:DateTimeString></ram:OccurrenceDateTime>
+      </ram:ActualDeliverySupplyChainEvent>
+    </ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
       <ram:SpecifiedTradeSettlementPaymentMeans>
         <ram:TypeCode>58</ram:TypeCode>
-        <ram:PayeePartyCreditorFinancialAccount><ram:IBANID>DE33690500010000443322</ram:IBANID></ram:PayeePartyCreditorFinancialAccount>
+        <ram:PayeePartyCreditorFinancialAccount><ram:IBANID>DE27690500010000443322</ram:IBANID></ram:PayeePartyCreditorFinancialAccount>
       </ram:SpecifiedTradeSettlementPaymentMeans>
       <ram:ApplicableTradeTax>
         <ram:CalculatedAmount>13.18</ram:CalculatedAmount>

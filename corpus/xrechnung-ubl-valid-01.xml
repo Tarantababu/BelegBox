@@ -3,7 +3,7 @@
 <ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
              xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
              xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
-  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0</cbc:CustomizationID>
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</cbc:CustomizationID>
   <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
   <cbc:ID>SWK-08-2026</cbc:ID>
   <cbc:IssueDate>2026-08-22</cbc:IssueDate>
@@ -26,6 +26,11 @@
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity><cbc:RegistrationName>Stadtwerke Karlsruhe GmbH</cbc:RegistrationName></cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name>Buchhaltung</cbc:Name>
+        <cbc:Telephone>+49 721 0000000</cbc:Telephone>
+        <cbc:ElectronicMail>rechnung@stadtwerke-beispiel.de</cbc:ElectronicMail>
+      </cac:Contact>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
@@ -41,10 +46,13 @@
       <cac:PartyLegalEntity><cbc:RegistrationName>Şahin Döner GmbH</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2026-08-22</cbc:ActualDeliveryDate>
+  </cac:Delivery>
   <cac:PaymentMeans>
     <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
     <cbc:PaymentID>SWK-08-2026</cbc:PaymentID>
-    <cac:PayeeFinancialAccount><cbc:ID>DE07660501010009876543</cbc:ID></cac:PayeeFinancialAccount>
+    <cac:PayeeFinancialAccount><cbc:ID>DE20660501010009876543</cbc:ID></cac:PayeeFinancialAccount>
   </cac:PaymentMeans>
   <cac:PaymentTerms><cbc:Note>Zahlbar bis 05.09.2026 ohne Abzug.</cbc:Note></cac:PaymentTerms>
   <cac:TaxTotal>
@@ -67,7 +75,7 @@
   </cac:LegalMonetaryTotal>
   <cac:InvoiceLine>
     <cbc:ID>1</cbc:ID>
-    <cbc:InvoicedQuantity unitCode="KWH">4820</cbc:InvoicedQuantity>
+    <cbc:InvoicedQuantity unitCode="C62">1</cbc:InvoicedQuantity>
     <cbc:LineExtensionAmount currencyID="EUR">487.39</cbc:LineExtensionAmount>
     <cac:Item>
       <cbc:Name>Strom und Gas August 2026</cbc:Name>
@@ -77,6 +85,6 @@
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:ClassifiedTaxCategory>
     </cac:Item>
-    <cac:Price><cbc:PriceAmount currencyID="EUR">0.1011</cbc:PriceAmount></cac:Price>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">487.39</cbc:PriceAmount></cac:Price>
   </cac:InvoiceLine>
 </ubl:Invoice>

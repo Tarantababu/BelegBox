@@ -10,7 +10,7 @@
 <ubl:Invoice xmlns:ubl="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
              xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
              xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
-  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xoev-de:kosit:standard:xrechnung_3.0</cbc:CustomizationID>
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</cbc:CustomizationID>
   <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
   <cbc:ID>GM-88213</cbc:ID>
   <cbc:IssueDate>2026-08-27</cbc:IssueDate>
@@ -32,6 +32,11 @@
         <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
       </cac:PartyTaxScheme>
       <cac:PartyLegalEntity><cbc:RegistrationName>Getränke Müller GmbH</cbc:RegistrationName></cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name>Buchhaltung</cbc:Name>
+        <cbc:Telephone>+49 721 0000000</cbc:Telephone>
+        <cbc:ElectronicMail>rechnung@getraenke-mueller-beispiel.de</cbc:ElectronicMail>
+      </cac:Contact>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
@@ -46,10 +51,13 @@
       <cac:PartyLegalEntity><cbc:RegistrationName>Şahin Döner GmbH</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2026-08-27</cbc:ActualDeliveryDate>
+  </cac:Delivery>
   <cac:PaymentMeans>
     <cbc:PaymentMeansCode>58</cbc:PaymentMeansCode>
     <cbc:PaymentID>GM-88213</cbc:PaymentID>
-    <cac:PayeeFinancialAccount><cbc:ID>DE44660908000004556677</cbc:ID></cac:PayeeFinancialAccount>
+    <cac:PayeeFinancialAccount><cbc:ID>DE83660908000004556677</cbc:ID></cac:PayeeFinancialAccount>
   </cac:PaymentMeans>
   <cac:TaxTotal>
     <cbc:TaxAmount currencyID="EUR">28.03</cbc:TaxAmount>
