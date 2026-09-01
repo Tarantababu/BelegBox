@@ -35,6 +35,25 @@ jobs:
 
       # Sprint 0 exit criterion. Runs offline: detection, profile legality and
       # D-001 without the JVM. The form verdict reports "unknown", never a guess.
+      # Object Lock is the archive's whole immutability claim, and a bucket that
+      # merely says it is locked is not evidence. Ek A calls for proof.
+      - name: Prove undeletability against a locked bucket
+        run: |
+          curl -sL -o /tmp/minio https://dl.min.io/server/minio/release/linux-amd64/minio
+          curl -sL -o /tmp/mc https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x /tmp/minio /tmp/mc
+          MINIO_ROOT_USER=belegbox MINIO_ROOT_PASSWORD=belegbox-dev-secret \
+            /tmp/minio server /tmp/miniodata --address 127.0.0.1:9000 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:9000/minio/health/live && break
+            sleep 1
+          done
+          /tmp/mc alias set local http://127.0.0.1:9000 belegbox belegbox-dev-secret
+          # Locking can only be enabled at bucket creation.
+          /tmp/mc mb --with-lock local/belegbox-raw-dev
+          S3_TEST_ENDPOINT=http://127.0.0.1:9000 pnpm --filter @belegbox/storage exec vitest run
+          S3_TEST_ENDPOINT=http://127.0.0.1:9000 pnpm --filter @belegbox/worker exec vitest run
+
       - name: Validate the corpus
         run: pnpm validate --offline corpus/*.xml
 

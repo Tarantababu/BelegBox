@@ -1,17 +1,25 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { IngestOutcome } from "@belegbox/ingest";
+import {
+  objectKeyFor,
+  retainUntilFor,
+  type ObjectStore,
+  type RetentionMode,
+} from "@belegbox/storage";
 
 export interface PutObjectInput {
   sha256: string;
   filename: string;
   bytes: Buffer;
+  contentType?: string;
 }
 
 export interface PutObjectResult {
   objectKey: string;
   /** True when the exact bytes were already stored - a byte-identical resend. */
   alreadyExisted: boolean;
+  retainUntil?: Date;
 }
 
 export interface DocumentRecord {
@@ -42,9 +50,9 @@ export interface DocumentRecord {
 /**
  * The seam between ingest and persistence.
  *
- * F1 week 2 replaces the implementation below with S3 Object Lock plus
- * Postgres. Nothing above this interface changes when it does - which is the
- * point of writing it now rather than faking a database.
+ * Raw bytes now go to a real object store; the metadata side is still a JSONL
+ * file until the worker is wired to Postgres. Nothing above this interface
+ * changed when the storage half was swapped, which is what the seam was for.
  */
 export interface DocumentStore {
   /** Writes raw bytes once. Re-writing the same digest must not overwrite. */
@@ -58,39 +66,65 @@ export interface DocumentStore {
   hasSeenMessage(provider: string, providerMessageId: string): Promise<boolean>;
 }
 
+export interface DocumentStoreOptions {
+  /** Where raw bytes go. S3 with Object Lock in production. */
+  objects: ObjectStore;
+  /**
+   * GOVERNANCE outside production, COMPLIANCE in it. COMPLIANCE cannot be
+   * lifted by anyone, including the account root, which is the property GoBD
+   * needs and also the one that makes a mistake expensive for a decade.
+   */
+  retentionMode?: RetentionMode;
+  /** § 14b UStG: ten years for invoices, eight for accounting vouchers. */
+  retentionYears?: number;
+}
+
 /**
- * Local stand-in for the WORM archive.
+ * Document metadata on the local filesystem, raw bytes in the object store.
  *
- * Objects are written with the `wx` flag, so a second write of the same digest
- * fails rather than overwriting. That is a deliberately faithful rehearsal of
- * S3 Object Lock semantics: code that assumes it can re-put an object will
- * break here, in development, instead of in production where the bucket is in
- * Compliance mode and nothing can be undone.
+ * The metadata half is still a JSONL file - Postgres takes over when the worker
+ * is wired to it. The bytes half is real: it writes to whatever ObjectStore it
+ * is handed, which in production is a Compliance-mode bucket.
  */
 export class FilesystemDocumentStore implements DocumentStore {
-  private readonly objectsDir: string;
   private readonly recordsFile: string;
+  private readonly objects: ObjectStore;
+  private readonly retentionMode: RetentionMode;
+  private readonly retentionYears: number;
   private seen: Set<string> | null = null;
 
-  constructor(private readonly root: string) {
-    this.objectsDir = join(root, "objects");
+  constructor(
+    private readonly root: string,
+    options: DocumentStoreOptions,
+  ) {
     this.recordsFile = join(root, "records.jsonl");
+    this.objects = options.objects;
+    this.retentionMode = options.retentionMode ?? "GOVERNANCE";
+    this.retentionYears = options.retentionYears ?? 10;
   }
 
   async putObject(input: PutObjectInput): Promise<PutObjectResult> {
-    const objectKey = join(input.sha256.slice(0, 2), input.sha256);
-    const path = join(this.objectsDir, objectKey);
-    await mkdir(dirname(path), { recursive: true });
+    // Retention is applied at write time, not when the document is later
+    // archived. A document that arrives and is never processed is still one the
+    // tenant is required to keep.
+    const retention = {
+      mode: this.retentionMode,
+      retainUntil: retainUntilFor(new Date(), this.retentionYears),
+    };
 
-    try {
-      await writeFile(path, input.bytes, { flag: "wx" });
-      return { objectKey, alreadyExisted: false };
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "EEXIST") {
-        return { objectKey, alreadyExisted: true };
-      }
-      throw err;
-    }
+    const result = await this.objects.put({
+      key: objectKeyFor(input.sha256),
+      bytes: input.bytes,
+      sha256: input.sha256,
+      ...(input.contentType ? { contentType: input.contentType } : {}),
+      retention,
+    });
+
+    return {
+      objectKey: result.key,
+      alreadyExisted: result.alreadyExisted,
+      ...(result.retainUntil ? { retainUntil: result.retainUntil } : {}),
+    };
   }
 
   async hasSeenMessage(provider: string, providerMessageId: string): Promise<boolean> {

@@ -127,6 +127,7 @@ async function handle<Request>(
       sha256: doc.sha256,
       filename: doc.filename,
       bytes: doc.bytes,
+      contentType: doc.contentType,
     });
 
     records.push({

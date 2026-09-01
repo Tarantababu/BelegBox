@@ -1,9 +1,10 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { FilesystemObjectStore, S3ObjectStore, type ObjectStore } from "@belegbox/storage";
 import { buildServer } from "./server.js";
 import { FilesystemDocumentStore } from "./store.js";
 
@@ -19,9 +20,32 @@ let app: FastifyInstance;
 let store: FilesystemDocumentStore;
 let root: string;
 
+/**
+ * Runs against MinIO when S3_TEST_ENDPOINT is set, and against the filesystem
+ * otherwise. The same suite covers both, because the point of the seam is that
+ * the worker does not know which one it has.
+ */
+const S3_ENDPOINT = process.env["S3_TEST_ENDPOINT"];
+
+function objectStore(dir: string): ObjectStore {
+  if (!S3_ENDPOINT) return new FilesystemObjectStore(join(dir, "objects"));
+  return new S3ObjectStore({
+    bucket: process.env["S3_TEST_BUCKET"] ?? "belegbox-raw-dev",
+    endpoint: S3_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env["S3_TEST_ACCESS_KEY"] ?? "belegbox",
+      secretAccessKey: process.env["S3_TEST_SECRET_KEY"] ?? "belegbox-dev-secret",
+    },
+    forcePathStyle: true,
+  });
+}
+
+let objects: ObjectStore;
+
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "belegbox-ingest-"));
-  store = new FilesystemDocumentStore(root);
+  objects = objectStore(root);
+  store = new FilesystemDocumentStore(root, { objects, retentionMode: "GOVERNANCE" });
   app = await buildServer({
     store,
     postmark: POSTMARK,
@@ -149,9 +173,16 @@ describe("postmark webhook", () => {
 
     // The archived bytes are the attachment, unmodified.
     const sha = body.documents[0]?.sha256 as string;
-    const stored = await readFile(join(root, "objects", sha.slice(0, 2), sha));
+    const stored = await objects.get(`${sha.slice(0, 2)}/${sha}`);
     const original = await readFile(join(CORPUS, "xrechnung-ubl-valid-01.xml"));
     expect(stored.equals(original)).toBe(true);
+
+    // And under a retention that outlives the statutory keeping period.
+    const info = await objects.head(`${sha.slice(0, 2)}/${sha}`);
+    expect(info?.retainUntil).toBeInstanceOf(Date);
+    expect(info?.retainUntil?.getUTCFullYear()).toBeGreaterThanOrEqual(
+      new Date().getUTCFullYear() + 10,
+    );
   });
 
   // Every provider redelivers on timeout. Without idempotency that is a second
@@ -246,15 +277,16 @@ describe("mailgun webhook", () => {
 
 describe("write-once object store", () => {
   it("does not overwrite an object that already exists", async () => {
-    const bytes = Buffer.from("<Invoice/>");
-    const input = { sha256: "a".repeat(64), filename: "a.xml", bytes };
+    const bytes = Buffer.concat([Buffer.from("<Invoice/>"), randomBytes(8)]);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const input = { sha256, filename: "a.xml", bytes };
 
     const first = await store.putObject(input);
     const second = await store.putObject(input);
 
     expect(first.alreadyExisted).toBe(false);
-    // Rehearses S3 Object Lock: code that assumes it can re-put breaks here,
-    // in development, not in a Compliance-mode bucket.
+    // Against S3 this is the conditional write being refused, not application
+    // discipline: versioning would otherwise accept a second copy silently.
     expect(second.alreadyExisted).toBe(true);
     expect(second.objectKey).toBe(first.objectKey);
   });

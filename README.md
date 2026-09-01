@@ -40,7 +40,8 @@ roadmap does not mean its turn has come.
 | `services/mustang-svc` | **Wired.** JVM sidecar running the official KoSIT validator, configuration pinned |
 | `corpus` | **Sprint 0.** Seven hand-authored fixtures with committed snapshots |
 | `packages/ingest` | **Week 1.** Provider adapters, sender authentication, PDF/A-3 extraction, inbox addressing |
-| `apps/worker` | **Week 1.** Inbound webhook, idempotency, write-once object store |
+| `apps/worker` | **Week 1.** Inbound webhook, idempotency, WORM archive |
+| `packages/storage` | **Wired.** S3 Object Lock, with the undeletability proof |
 | `packages/archive` | **Week 2.** RFC 6962 Merkle tree, day chain, inclusion proofs |
 | `packages/db` | **Week 2.** Schema, RLS, append-only enforcement, archive writer |
 | `apps/api` | **Week 2.** Fastify `/v1`, archive proof endpoint |
@@ -87,6 +88,33 @@ RLS binds a role that cannot step around it, so `belegbox_app` owns no tables,
 is not a superuser, and holds no `BYPASSRLS` — asserted by a test, because
 someone will eventually want to grant one of those to unblock a migration.
 Details in [packages/db/README.md](packages/db/README.md).
+
+## The archive
+
+Raw documents go to S3 with Object Lock, under a retention that runs to the end
+of the tenth calendar year after receipt (§ 14b UStG). Two properties are worth
+knowing:
+
+**The store interface has no `delete`.** There is no legitimate caller for one
+in a system that keeps invoices for a decade, so the interface cannot express
+it and no incident produces a tempting one-liner.
+
+**A plain delete still appears to succeed.** On a versioned bucket, `DELETE`
+without a version id writes a delete marker: the object vanishes from a normal
+read while the locked version sits untouched underneath. Retention protects the
+bytes; it does not stop the archive from being made to *look* empty. There is a
+test that pins both halves of that behaviour, because it is better learned now
+than during an audit.
+
+```bash
+minio server ./data --address 127.0.0.1:9000 &
+mc mb --with-lock local/belegbox-raw-dev
+S3_TEST_ENDPOINT=http://127.0.0.1:9000 pnpm --filter @belegbox/storage test
+```
+
+Locking must be enabled when the bucket is created — it cannot be turned on
+later. The suite is the Ek A pre-launch item ("prove undeletability") and refuses
+to pass unless a real store refuses a real delete.
 
 ## The form verdict
 
@@ -238,8 +266,6 @@ Scaffolded on a machine with no JDK and no Docker, so:
 - `docker-compose.yml` has not been brought up. The database suite was verified
   against a throwaway PostgreSQL 16 cluster instead, and runs in CI against a
   service container.
-- Object storage is still the filesystem stand-in. S3 with Object Lock is week
-  3; the `wx` write is a rehearsal of it, not the thing itself.
 - Every version in `services/mustang-svc/versions.properties` reads `UNPINNED`.
   Pinning them against a resolved build is F1 week 1 and blocks storing any
   verdict (R-2).
