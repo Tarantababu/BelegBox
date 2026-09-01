@@ -36,6 +36,12 @@ rules:
             - field: line.description
               op: matches_lexicon
               value: beverage_exceptions_de
+        # Cups, crates and bottle carriers are goods, not drinks, and they carry
+        # the drink's name. "Getränkekiste" at 19 % is correct.
+        - none:
+            - field: line.description
+              op: matches_lexicon
+              value: packaging_and_equipment_de
     then:
       - action: compute
         var: vat_gap
@@ -70,6 +76,14 @@ rules:
             - field: line.description
               op: matches_lexicon
               value: beverages_de
+        # "Döner-Boxen und Servietten" is packaging named after the food it
+        # holds, correctly at 19 %. Caught by the seed run against the corpus,
+        # which is the failure mode this rule has to survive: a weekly false
+        # positive is how a real finding gets ignored.
+        - none:
+            - field: line.description
+              op: matches_lexicon
+              value: packaging_and_equipment_de
     then:
       - action: flag
         explain_key: gastro.food_wrong_rate
@@ -77,6 +91,31 @@ rules:
         tag: vat-rate-review
 
 lexicons:
+  # Goods that take their name from what they contain or serve.
+  packaging_and_equipment_de:
+    - box
+    - boxen
+    - schachtel
+    - karton
+    - verpackung
+    - serviette
+    - becher
+    - deckel
+    - tuete
+    - beutel
+    - folie
+    - kiste
+    - kasten
+    - traeger
+    - spiess
+    - messer
+    - teller
+    - besteck
+    - maschine
+    - geraet
+    - reiniger
+    - handschuh
+
   food_de:
     - speisen
     - lebensmittel

@@ -1,4 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
+import { loadRuleSet } from "@belegbox/rules-engine";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MustangClient, type MustangValidateResponse } from "./mustang-client.js";
@@ -133,5 +134,34 @@ describe("verdict wiring", () => {
     });
     expect(r.status).toBe("not_einvoice");
     expect(r.findings.map((f) => f.code)).toContain("D-000");
+  });
+});
+
+describe("status when the form check could not run", () => {
+  /**
+   * Regression. `pending` used to win over `content_error`, so a document with
+   * a confirmed content failure and an unreachable validator showed grey in
+   * the inbox. Since mustang-svc is not wired yet, that was every content
+   * error the product finds.
+   */
+  it("reports content_error rather than pending", async () => {
+    const ruleSet = loadRuleSet(
+      await readFile(join(import.meta.dirname, "../../../rulesets/gastro-de.yaml"), "utf8"),
+    );
+    const r = await validateDocument(await load("gastro-beverage-7pct-01.xml"), {
+      skipL1L2: true,
+      ruleSet,
+    });
+
+    expect(r.verdict.form).toBe("unknown");
+    expect(r.verdict.content).toBe("fail");
+    expect(r.status).toBe("content_error");
+  });
+
+  it("still reports pending when nothing is known either way", async () => {
+    const r = await validateDocument(await load("xrechnung-ubl-valid-01.xml"), {
+      skipL1L2: true,
+    });
+    expect(r.status).toBe("pending");
   });
 });

@@ -1,6 +1,9 @@
+import cors from "@fastify/cors";
 import { verifyChain, verifyEntryProof } from "@belegbox/archive";
 import { proofForDocument, type Db } from "@belegbox/db";
+import type { Registry } from "@belegbox/explain";
 import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import { registerRoutes } from "./routes.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -13,10 +16,23 @@ export interface ApiOptions {
    */
   resolveTenant: (request: FastifyRequest) => Promise<string | undefined>;
   logger?: boolean;
+  /** Template registry for rendering explanations. */
+  explain?: Registry;
+  allowUnapprovedTemplates?: boolean;
+  inboxDomain?: string;
+  /** Origins allowed to call the API from a browser. */
+  corsOrigins?: string[];
 }
 
 export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: opts.logger ?? false });
+
+  if (opts.corsOrigins && opts.corsOrigins.length > 0) {
+    // An explicit list, never a reflected origin. The API answers with tenant
+    // data, so a permissive CORS policy would hand it to any page the user
+    // happens to have open.
+    await app.register(cors, { origin: opts.corsOrigins, credentials: true });
+  }
 
   app.get("/health", async () => ({ status: "ok" }));
 
@@ -80,6 +96,18 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
       },
     });
   });
+
+  if (opts.explain) {
+    registerRoutes(app, {
+      db: opts.db,
+      explain: opts.explain,
+      resolveTenant: opts.resolveTenant,
+      ...(opts.allowUnapprovedTemplates !== undefined
+        ? { allowUnapprovedTemplates: opts.allowUnapprovedTemplates }
+        : {}),
+      ...(opts.inboxDomain ? { inboxDomain: opts.inboxDomain } : {}),
+    });
+  }
 
   return app;
 }

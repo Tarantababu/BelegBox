@@ -4,10 +4,33 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.test.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
   "references": [
-    { "path": "../../packages/archive" },
-    { "path": "../../packages/db" }
+    {
+      "path": "../../packages/archive"
+    },
+    {
+      "path": "../../packages/core-invoice"
+    },
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/explain"
+    },
+    {
+      "path": "../../packages/ingest"
+    },
+    {
+      "path": "../../packages/rules-engine"
+    },
+    {
+      "path": "../../packages/validation"
+    }
   ]
 }

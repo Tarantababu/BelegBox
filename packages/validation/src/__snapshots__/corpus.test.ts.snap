@@ -33,7 +33,7 @@ exports[`corpus snapshots > every fixture produces a stable offline result 1`] =
     "format": "xrechnung_ubl",
     "legalClass": "einvoice",
     "profile": "XRechnung 3.0",
-    "status": "pending",
+    "status": "content_error",
     "syntax": "ubl",
     "verdict": {
       "content": "fail",

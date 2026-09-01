@@ -455,3 +455,34 @@ describe("evaluation semantics", () => {
     expect(() => loadRuleSet(yaml)).toThrow(RuleSetError);
   });
 });
+
+describe("lexicon false positives", () => {
+  /**
+   * Found by seeding the corpus, not by review. "Döner-Boxen und Servietten" is
+   * packaging correctly billed at 19 %, and the food lexicon matched it because
+   * the box is named after what goes in it. Gastronomy suppliers ship a lot of
+   * goods named after food and drink, and a weekly false positive is precisely
+   * how a real finding gets ignored.
+   */
+  it("does not treat packaging named after food as mis-rated food", async () => {
+    const set = loadRuleSet(await ruleset("gastro-de.yaml"));
+    const invoice = parseInvoice(await corpus("broken-br-co-15-01.xml"));
+    expect(evaluateRuleSet(set, { invoice, direction: "incoming" }).findings).toHaveLength(0);
+  });
+
+  it("does not treat drink crates as mis-rated drinks", async () => {
+    const set = loadRuleSet(await ruleset("gastro-de.yaml"));
+    const base = parseInvoice(await corpus("gastro-beverage-7pct-01.xml"));
+    const crates: Invoice = {
+      ...base,
+      lines: [{ ...base.lines[0], name: "Getränkekisten Pfand, 20 Stück" }],
+    };
+    expect(evaluateRuleSet(set, { invoice: crates, direction: "incoming" }).findings).toHaveLength(0);
+  });
+
+  it("still flags the actual beverage delivery", async () => {
+    const set = loadRuleSet(await ruleset("gastro-de.yaml"));
+    const invoice = parseInvoice(await corpus("gastro-beverage-7pct-01.xml"));
+    expect(evaluateRuleSet(set, { invoice, direction: "incoming" }).findings).toHaveLength(1);
+  });
+});

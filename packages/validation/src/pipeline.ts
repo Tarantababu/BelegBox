@@ -197,8 +197,14 @@ function deriveStatus(
 ): DocumentStatus {
   if (detection.profile.legalClass === "not_einvoice") return "not_einvoice";
   if (form === "fail") return "form_error";
-  if (form === "unknown") return "pending";
+
+  // Content is judged before an unrun form check, so the status reports the
+  // strongest thing actually known. The other order looks reasonable and is
+  // wrong: a document with a confirmed content error and an unreachable
+  // validator would report "pending", take a grey spine, and disappear into
+  // the inbox - hiding the one finding the product exists to surface.
   if (content === "fail") return "content_error";
+  if (form === "unknown") return "pending";
   return "clean";
 }
 

@@ -21,6 +21,13 @@ export interface InsertDocumentInput {
   issuedAt?: string | null;
   dueAt?: string | null;
   receivedAt?: string | null;
+  /** Denormalised for the inbox listing - see migration 0003. */
+  supplierName?: string | null;
+  supplierVatId?: string | null;
+  invoiceNumber?: string | null;
+  totalGross?: number | null;
+  totalNet?: number | null;
+  totalVat?: number | null;
 }
 
 export interface DocumentRow {
@@ -30,8 +37,18 @@ export interface DocumentRow {
   raw_object_key: string;
   size_bytes: string;
   status: string;
+  verdict_form: string;
+  verdict_content: string;
   format: string | null;
   profile_urn: string | null;
+  supplier_name: string | null;
+  supplier_vat_id: string | null;
+  invoice_number: string | null;
+  total_gross: string | null;
+  total_net: string | null;
+  total_vat: string | null;
+  issued_at: string | null;
+  due_at: string | null;
   archived_at: Date | null;
   archive_hash: string | null;
   received_at: Date;
@@ -54,13 +71,17 @@ export async function insertDocument(
        raw_object_key, raw_sha256, size_bytes, filename, content_type,
        format, profile_urn, status, verdict_form, verdict_content,
        doc_type_code, corrects_document_id, sender_auth, message_id,
-       issued_at, due_at, received_at
+       issued_at, due_at, received_at,
+       supplier_name, supplier_vat_id, invoice_number,
+       total_gross, total_net, total_vat
      ) VALUES (
        $1, $2, $3, $4,
        $5, $6, $7, $8, $9,
        $10, $11, $12, $13, $14,
        $15, $16, $17, $18,
-       $19, $20, COALESCE($21::timestamptz, now())
+       $19, $20, COALESCE($21::timestamptz, now()),
+       $22, $23, $24,
+       $25, $26, $27
      )
      ON CONFLICT (tenant_id, raw_sha256) DO NOTHING
      RETURNING id`,
@@ -86,6 +107,12 @@ export async function insertDocument(
       input.issuedAt ?? null,
       input.dueAt ?? null,
       input.receivedAt ?? null,
+      input.supplierName ?? null,
+      input.supplierVatId ?? null,
+      input.invoiceNumber ?? null,
+      input.totalGross ?? null,
+      input.totalNet ?? null,
+      input.totalVat ?? null,
     ],
   );
 
@@ -117,4 +144,157 @@ export async function getDocument(
 export async function countDocuments(tx: TenantClient): Promise<number> {
   const { rows } = await tx.query<{ n: string }>("SELECT count(*) AS n FROM documents");
   return Number(rows[0]?.n ?? 0);
+}
+
+export interface DocumentListItem {
+  id: string;
+  supplier_name: string | null;
+  invoice_number: string | null;
+  issued_at: string | null;
+  due_at: string | null;
+  total_gross: string | null;
+  format: string | null;
+  status: string;
+  verdict_form: string;
+  verdict_content: string;
+  received_at: Date;
+  finding_count: string;
+}
+
+export interface ListFilters {
+  status?: string;
+  /** Matches supplier name or invoice number. */
+  search?: string;
+  limit?: number;
+}
+
+/**
+ * Inbox listing.
+ *
+ * Reads the denormalised columns rather than digging into `parsed`, so the list
+ * stays one index scan even when a tenant has ten years of documents. RLS keeps
+ * it to this tenant; there is no tenant_id in the WHERE clause because there
+ * must not be one to forget.
+ */
+export async function listDocuments(
+  tx: TenantClient,
+  filters: ListFilters = {},
+): Promise<DocumentListItem[]> {
+  const limit = Math.min(Math.max(filters.limit ?? 100, 1), 500);
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+
+  if (filters.status) {
+    values.push(filters.status);
+    conditions.push(`status = $${values.length}`);
+  }
+  if (filters.search?.trim()) {
+    values.push(`%${filters.search.trim()}%`);
+    conditions.push(`(supplier_name ILIKE $${values.length} OR invoice_number ILIKE $${values.length})`);
+  }
+  values.push(limit);
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const { rows } = await tx.query<DocumentListItem>(
+    `SELECT d.id, d.supplier_name, d.invoice_number, d.issued_at::text, d.due_at::text,
+            d.total_gross::text, d.format, d.status, d.verdict_form, d.verdict_content,
+            d.received_at,
+            (SELECT count(*) FROM findings f WHERE f.document_id = d.id) AS finding_count
+       FROM documents d
+       ${where}
+       ORDER BY d.received_at DESC
+       LIMIT $${values.length}`,
+    values,
+  );
+  return rows;
+}
+
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export async function countByStatus(tx: TenantClient): Promise<StatusCount[]> {
+  const { rows } = await tx.query<{ status: string; n: string }>(
+    "SELECT status, count(*) AS n FROM documents GROUP BY status",
+  );
+  return rows.map((r) => ({ status: r.status, count: Number(r.n) }));
+}
+
+export interface FindingRow {
+  id: string;
+  layer: string;
+  code: string;
+  severity: string;
+  bt_ref: string | null;
+  legal_basis: string | null;
+  message_raw: string;
+  explain_key: string | null;
+  params: Record<string, string | number> | null;
+  validator_config_version: string;
+  engine_version: string;
+  ruleset_version: number | null;
+}
+
+export async function getFindings(
+  tx: TenantClient,
+  documentId: string,
+): Promise<FindingRow[]> {
+  const { rows } = await tx.query<FindingRow>(
+    `SELECT id, layer, code, severity, bt_ref, legal_basis, message_raw,
+            explain_key, params, validator_config_version, engine_version, ruleset_version
+       FROM findings WHERE document_id = $1
+       ORDER BY CASE layer
+                  WHEN 'l1_schema' THEN 1 WHEN 'l2_schematron' THEN 2
+                  WHEN 'l3_domain' THEN 3 ELSE 4 END, code`,
+    [documentId],
+  );
+  return rows;
+}
+
+export interface InsertFindingInput {
+  documentId: string;
+  layer: string;
+  code: string;
+  severity: string;
+  btRef?: string | null;
+  legalBasis?: string | null;
+  messageRaw: string;
+  explainKey?: string | null;
+  params?: Record<string, string | number> | null;
+  validatorConfigVersion: string;
+  engineVersion: string;
+  rulesetVersion?: number | null;
+}
+
+export async function insertFindings(
+  tx: TenantClient,
+  findings: InsertFindingInput[],
+): Promise<number> {
+  let written = 0;
+  for (const f of findings) {
+    await tx.query(
+      `INSERT INTO findings (tenant_id, document_id, layer, code, severity, bt_ref,
+                             legal_basis, message_raw, explain_key, params,
+                             validator_config_version, engine_version, ruleset_version)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        tx.tenantId,
+        f.documentId,
+        f.layer,
+        f.code,
+        f.severity,
+        f.btRef ?? null,
+        f.legalBasis ?? null,
+        f.messageRaw,
+        f.explainKey ?? null,
+        f.params ? JSON.stringify(f.params) : null,
+        f.validatorConfigVersion,
+        f.engineVersion,
+        f.rulesetVersion ?? null,
+      ],
+    );
+    written += 1;
+  }
+  return written;
 }
