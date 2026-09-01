@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import multipart from "@fastify/multipart";
 import {
   ingestMessage,
@@ -12,7 +11,7 @@ import {
   type RawAttachment,
 } from "@belegbox/ingest";
 import Fastify, { type FastifyInstance } from "fastify";
-import type { DocumentRecord, DocumentStore } from "./store.js";
+import type { DocumentStore } from "./store.js";
 
 export interface ServerOptions {
   store: DocumentStore;
@@ -112,77 +111,19 @@ async function handle<Request>(
   }
 
   const message = source.normalize(request);
-
-  // Every provider redelivers on timeout. Without this, one slow archive write
-  // becomes two copies of the same invoice.
-  if (await store.hasSeenMessage(message.provider, message.providerMessageId)) {
-    return reply.code(200).send({ status: "duplicate", documents: 0 });
-  }
-
   const outcome = ingestMessage(message);
-  const records: DocumentRecord[] = [];
+  const result = await store.ingest(outcome);
 
-  for (const doc of outcome.documents) {
-    const put = await store.putObject({
-      sha256: doc.sha256,
-      filename: doc.filename,
-      bytes: doc.bytes,
-      contentType: doc.contentType,
-    });
-
-    records.push({
-      id: randomUUID(),
-      ...(outcome.inboxSlug ? { inboxSlug: outcome.inboxSlug } : {}),
-      provider: message.provider,
-      providerMessageId: message.providerMessageId,
-      ...(message.messageId ? { messageId: message.messageId } : {}),
-      receivedAt: message.receivedAt.toISOString(),
-      from: message.from,
-      subject: message.subject,
-      senderAuth: message.senderAuth,
-      filename: doc.filename,
-      contentType: doc.contentType,
-      sha256: doc.sha256,
-      sizeBytes: doc.sizeBytes,
-      objectKey: put.objectKey,
-      ...(doc.detection
-        ? {
-            format: doc.detection.format,
-            profileUrn: doc.detection.profile.urn,
-            legalClass: doc.detection.profile.legalClass,
-            ...(doc.detection.invoiceNumber ? { invoiceNumber: doc.detection.invoiceNumber } : {}),
-            ...(doc.detection.issueDate ? { issuedAt: doc.detection.issueDate } : {}),
-            ...(doc.detection.documentTypeCode
-              ? { docTypeCode: doc.detection.documentTypeCode }
-              : {}),
-          }
-        : {}),
-      // Validation has not run yet, so nothing is `clean` at this point. The
-      // only verdict ingest can reach on its own is that a document is not an
-      // e-invoice at all.
-      status:
-        doc.detection && doc.detection.profile.legalClass === "einvoice"
-          ? "pending"
-          : "not_einvoice",
-      warnings: outcome.warnings.map((w) => w.code),
-    });
-  }
-
-  const { accepted } = await store.recordMessage(outcome, records);
-  if (!accepted) {
+  // 200 rather than an error: a redelivery is the provider behaving correctly,
+  // and answering with a failure would make it try again.
+  if (!result.accepted) {
     return reply.code(200).send({ status: "duplicate", documents: 0 });
   }
 
   return reply.code(202).send({
     status: "accepted",
     inboxSlug: outcome.inboxSlug ?? null,
-    documents: records.map((r) => ({
-      id: r.id,
-      filename: r.filename,
-      sha256: r.sha256,
-      format: r.format ?? null,
-      status: r.status,
-    })),
+    documents: result.documents,
     rejected: outcome.rejected.map((r) => ({ filename: r.filename, reason: r.reason })),
     warnings: outcome.warnings,
   });

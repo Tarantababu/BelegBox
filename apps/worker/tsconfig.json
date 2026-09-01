@@ -15,13 +15,19 @@
       "path": "../../packages/core-invoice"
     },
     {
+      "path": "../../packages/db"
+    },
+    {
       "path": "../../packages/ingest"
     },
     {
-      "path": "../../packages/validation"
+      "path": "../../packages/rules-engine"
     },
     {
       "path": "../../packages/storage"
+    },
+    {
+      "path": "../../packages/validation"
     }
   ]
 }

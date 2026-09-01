@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { IngestOutcome } from "@belegbox/ingest";
@@ -47,23 +48,30 @@ export interface DocumentRecord {
   warnings: string[];
 }
 
+export interface IngestedRecord {
+  id: string;
+  filename: string;
+  sha256: string;
+  format: string | null;
+  status: string;
+}
+
+export interface IngestResult {
+  /** False when this message was already handled, or could not be routed. */
+  accepted: boolean;
+  documents: IngestedRecord[];
+}
+
 /**
  * The seam between ingest and persistence.
  *
- * Raw bytes now go to a real object store; the metadata side is still a JSONL
- * file until the worker is wired to Postgres. Nothing above this interface
- * changed when the storage half was swapped, which is what the seam was for.
+ * One method, because deduplication and writing have to happen together. The
+ * earlier shape - ask whether a message was seen, then process, then record -
+ * has a gap between the question and the answer that two concurrent
+ * redeliveries walk straight through.
  */
 export interface DocumentStore {
-  /** Writes raw bytes once. Re-writing the same digest must not overwrite. */
-  putObject(input: PutObjectInput): Promise<PutObjectResult>;
-  /** Records document metadata. Returns false when this message was already handled. */
-  recordMessage(
-    outcome: IngestOutcome,
-    records: DocumentRecord[],
-  ): Promise<{ accepted: boolean }>;
-  /** Idempotency for webhook redelivery, which every provider does. */
-  hasSeenMessage(provider: string, providerMessageId: string): Promise<boolean>;
+  ingest(outcome: IngestOutcome): Promise<IngestResult>;
 }
 
 export interface DocumentStoreOptions {
@@ -103,6 +111,92 @@ export class FilesystemDocumentStore implements DocumentStore {
     this.retentionYears = options.retentionYears ?? 10;
   }
 
+  async ingest(outcome: IngestOutcome): Promise<IngestResult> {
+    const message = outcome.message;
+    const key = `${message.provider}:${message.providerMessageId}`;
+    const seen = await this.loadSeen();
+    if (message.providerMessageId && seen.has(key)) {
+      return { accepted: false, documents: [] };
+    }
+
+    const records: DocumentRecord[] = [];
+    for (const doc of outcome.documents) {
+      const put = await this.putObject({
+        sha256: doc.sha256,
+        filename: doc.filename,
+        bytes: doc.bytes,
+        contentType: doc.contentType,
+      });
+
+      records.push({
+        id: randomUUID(),
+        ...(outcome.inboxSlug ? { inboxSlug: outcome.inboxSlug } : {}),
+        provider: message.provider,
+        providerMessageId: message.providerMessageId,
+        ...(message.messageId ? { messageId: message.messageId } : {}),
+        receivedAt: message.receivedAt.toISOString(),
+        from: message.from,
+        subject: message.subject,
+        senderAuth: message.senderAuth,
+        filename: doc.filename,
+        contentType: doc.contentType,
+        sha256: doc.sha256,
+        sizeBytes: doc.sizeBytes,
+        objectKey: put.objectKey,
+        ...(doc.detection
+          ? {
+              format: doc.detection.format,
+              profileUrn: doc.detection.profile.urn,
+              legalClass: doc.detection.profile.legalClass,
+              ...(doc.detection.invoiceNumber
+                ? { invoiceNumber: doc.detection.invoiceNumber }
+                : {}),
+              ...(doc.detection.issueDate ? { issuedAt: doc.detection.issueDate } : {}),
+              ...(doc.detection.documentTypeCode
+                ? { docTypeCode: doc.detection.documentTypeCode }
+                : {}),
+            }
+          : {}),
+        // This store does not validate; the Postgres one does. Ingest on its own
+        // can only conclude that a document is not an e-invoice at all.
+        status:
+          doc.detection && doc.detection.profile.legalClass === "einvoice"
+            ? "pending"
+            : "not_einvoice",
+        warnings: outcome.warnings.map((w) => w.code),
+      });
+    }
+
+    await mkdir(this.root, { recursive: true });
+    const lines = records.map((r) => `${JSON.stringify(r)}\n`).join("");
+    // A message with no documents is still recorded, so a supplier sending
+    // nothing but PDFs is visible rather than invisible.
+    await appendFile(
+      this.recordsFile,
+      lines ||
+        `${JSON.stringify({
+          messageOnly: true,
+          provider: message.provider,
+          providerMessageId: message.providerMessageId,
+          receivedAt: message.receivedAt.toISOString(),
+          warnings: outcome.warnings.map((w) => w.code),
+        })}\n`,
+      "utf8",
+    );
+    if (message.providerMessageId) seen.add(key);
+
+    return {
+      accepted: true,
+      documents: records.map((r) => ({
+        id: r.id,
+        filename: r.filename,
+        sha256: r.sha256,
+        format: r.format ?? null,
+        status: r.status,
+      })),
+    };
+  }
+
   async putObject(input: PutObjectInput): Promise<PutObjectResult> {
     // Retention is applied at write time, not when the document is later
     // archived. A document that arrives and is never processed is still one the
@@ -125,43 +219,6 @@ export class FilesystemDocumentStore implements DocumentStore {
       alreadyExisted: result.alreadyExisted,
       ...(result.retainUntil ? { retainUntil: result.retainUntil } : {}),
     };
-  }
-
-  async hasSeenMessage(provider: string, providerMessageId: string): Promise<boolean> {
-    if (!providerMessageId) return false;
-    const seen = await this.loadSeen();
-    return seen.has(`${provider}:${providerMessageId}`);
-  }
-
-  async recordMessage(
-    outcome: IngestOutcome,
-    records: DocumentRecord[],
-  ): Promise<{ accepted: boolean }> {
-    const key = `${outcome.message.provider}:${outcome.message.providerMessageId}`;
-    const seen = await this.loadSeen();
-    if (outcome.message.providerMessageId && seen.has(key)) {
-      return { accepted: false };
-    }
-
-    await mkdir(this.root, { recursive: true });
-    const lines = records.map((r) => `${JSON.stringify(r)}\n`).join("");
-    // A message with no documents is still recorded, so a supplier sending
-    // nothing but PDFs is visible rather than invisible.
-    await appendFile(
-      this.recordsFile,
-      lines ||
-        `${JSON.stringify({
-          messageOnly: true,
-          provider: outcome.message.provider,
-          providerMessageId: outcome.message.providerMessageId,
-          receivedAt: outcome.message.receivedAt.toISOString(),
-          warnings: outcome.warnings.map((w) => w.code),
-        })}\n`,
-      "utf8",
-    );
-
-    if (outcome.message.providerMessageId) seen.add(key);
-    return { accepted: true };
   }
 
   private async loadSeen(): Promise<Set<string>> {

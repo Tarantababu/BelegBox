@@ -1,5 +1,12 @@
 export { Db, createPool, type Queryable, type TenantClient } from "./client.js";
 export { assertRlsEnforced, RlsBypassError } from "./guard.js";
+export {
+  claimInboundMessage,
+  finishInboundMessage,
+  resolveInbox,
+  type ClaimInput,
+  type ResolvedInbox,
+} from "./inbound.js";
 export { MIGRATIONS_DIR, migrate, type AppliedMigration } from "./migrate.js";
 export {
   countByStatus,

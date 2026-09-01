@@ -93,9 +93,15 @@ importers:
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../../packages/core-invoice
+      '@belegbox/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@belegbox/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
+      '@belegbox/rules-engine':
+        specifier: workspace:*
+        version: link:../../packages/rules-engine
       '@belegbox/storage':
         specifier: workspace:*
         version: link:../../packages/storage

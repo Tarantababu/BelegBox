@@ -40,7 +40,7 @@ roadmap does not mean its turn has come.
 | `services/mustang-svc` | **Wired.** JVM sidecar running the official KoSIT validator, configuration pinned |
 | `corpus` | **Sprint 0.** Seven hand-authored fixtures with committed snapshots |
 | `packages/ingest` | **Week 1.** Provider adapters, sender authentication, PDF/A-3 extraction, inbox addressing |
-| `apps/worker` | **Week 1.** Inbound webhook, idempotency, WORM archive |
+| `apps/worker` | **Wired.** Inbound webhook, WORM archive, validation, PostgreSQL |
 | `packages/storage` | **Wired.** S3 Object Lock, with the undeletability proof |
 | `packages/archive` | **Week 2.** RFC 6962 Merkle tree, day chain, inclusion proofs |
 | `packages/db` | **Week 2.** Schema, RLS, append-only enforcement, archive writer |
@@ -58,8 +58,32 @@ roadmap does not mean its turn has come.
 ```bash
 INGEST_PROVIDER=postmark \
 POSTMARK_WEBHOOK_USER=hook POSTMARK_WEBHOOK_PASSWORD=dev-secret \
+DATABASE_URL=postgres://belegbox_app:belegbox@localhost:5432/belegbox \
+S3_BUCKET_RAW=belegbox-raw-dev S3_ENDPOINT=http://localhost:9000 \
+MUSTANG_SVC_URL=http://localhost:8081 \
+RULESET_FILE=rulesets/gastro-de.yaml \
 pnpm --filter @belegbox/worker dev
 ```
+
+One message becomes: bytes in the WORM archive, a verdict from both validation
+layers, and a row in PostgreSQL under the recipient's tenant. Validation runs at
+ingest rather than in a later pass, so a document is never visible without a
+verdict — a row that says nothing is worse than no row, because the inbox shows
+it as unremarkable and the entire point is that some of them are not.
+
+Two details that took a second attempt to get right:
+
+**Deduplication and writing happen together.** The obvious shape — ask whether a
+message was seen, process it, then record it — has a gap between the question
+and the answer that two concurrent redeliveries walk straight through. The claim
+is an atomic `INSERT … ON CONFLICT DO NOTHING RETURNING` inside the same
+transaction as the documents, so a rollback releases it and a failed attempt
+gets a clean retry.
+
+**Unroutable mail is recorded, not discarded.** A message to an address that
+matches no inbox is stored with a null tenant, which the RLS policy renders
+invisible to every tenant while remaining visible to operators. Misdirected mail
+and probes are the busiest part of the inbound attack surface.
 
 `POST /inbound/postmark` and `POST /inbound/mailgun`. Both providers are
 implemented behind one `IngestSource`; **Postmark is the default** — its

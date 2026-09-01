@@ -1,6 +1,11 @@
+import { readFile } from "node:fs/promises";
+import { Db, assertRlsEnforced, createPool } from "@belegbox/db";
+import { loadRuleSet, type RuleSet } from "@belegbox/rules-engine";
 import { FilesystemObjectStore, S3ObjectStore, type ObjectStore } from "@belegbox/storage";
+import { MustangClient } from "@belegbox/validation";
+import { PostgresDocumentStore } from "./postgres-store.js";
 import { buildServer } from "./server.js";
-import { FilesystemDocumentStore } from "./store.js";
+import { FilesystemDocumentStore, type DocumentStore } from "./store.js";
 
 function required(name: string): string {
   const value = process.env[name];
@@ -58,12 +63,44 @@ async function main(): Promise<void> {
     : "GOVERNANCE" as const;
 
   const objects = buildObjectStore();
-  const app = await buildServer({
-    store: new FilesystemDocumentStore(storeDir, {
+  const retentionYears = Number(process.env["RETENTION_YEARS"] ?? 10);
+  const databaseUrl = process.env["DATABASE_URL"];
+
+  let store: DocumentStore;
+  let db: Db | undefined;
+
+  if (databaseUrl) {
+    db = new Db(createPool(databaseUrl));
+    // Serving or writing tenant data over a connection that bypasses RLS is the
+    // worst failure this system has, and it looks entirely normal from outside.
+    await assertRlsEnforced(db);
+
+    let ruleSet: RuleSet | undefined;
+    if (process.env["RULESET_FILE"]) {
+      ruleSet = loadRuleSet(await readFile(process.env["RULESET_FILE"], "utf8"));
+    }
+
+    store = new PostgresDocumentStore({
+      db,
       objects,
       retentionMode,
-      retentionYears: Number(process.env["RETENTION_YEARS"] ?? 10),
-    }),
+      retentionYears,
+      // Without a validator the form verdict stays unknown. That is the honest
+      // answer, and receiving keeps working while the JVM is down.
+      ...(process.env["MUSTANG_SVC_URL"]
+        ? { mustang: new MustangClient({ baseUrl: process.env["MUSTANG_SVC_URL"] }) }
+        : {}),
+      ...(ruleSet ? { ruleSet } : {}),
+    });
+  } else {
+    if (process.env["NODE_ENV"] === "production") {
+      throw new Error("DATABASE_URL is required in production.");
+    }
+    store = new FilesystemDocumentStore(storeDir, { objects, retentionMode, retentionYears });
+  }
+
+  const app = await buildServer({
+    store,
     logger: true,
     ...(provider === "postmark"
       ? {
@@ -83,6 +120,7 @@ async function main(): Promise<void> {
     {
       provider,
       objectStore: objects.constructor.name,
+      metadataStore: store.constructor.name,
       retentionMode,
       bucket: process.env["S3_BUCKET_RAW"] ?? null,
     },
