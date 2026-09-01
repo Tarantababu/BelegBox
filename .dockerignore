@@ -1,6 +1,11 @@
 node_modules
 **/node_modules
 **/dist
+# Incremental build state. Left in the context, tsc reads it, concludes the
+# outputs are already current - and dist is excluded, so it emits nothing and
+# exits 0. Every leaf package "builds" successfully with no output and the
+# packages that depend on them fail to resolve their types.
+**/*.tsbuildinfo
 **/.next
 **/.turbo
 .data
