@@ -160,9 +160,20 @@ database is unreachable and reports which features the instance can serve.
 
 ### 5. Web
 
-On Vercel: root directory `apps/web`, framework Next.js. Set `API_URL` to the
-API's public origin. It is read in server components only and never reaches the
-browser.
+On Vercel: **Root Directory must be `apps/web`.** Framework Next.js.
+
+Pointing a Vercel project at `apps/api` or `apps/worker` does not fail in a way
+that says so. The Turbo build succeeds — `tsc` compiles to `dist/` and every
+task reports exit 0 — and then the deployment fails at the end because a Fastify
+server that calls `listen()` has nothing Vercel can serve. The build summary
+looks entirely healthy; the target is simply wrong. Those two go to Fly.
+
+Set `API_URL` to the API's public origin. It is read in server components only
+and never reaches the browser. It is declared in `turbo.json` under the build
+task's `env`, which is what makes it part of the cache key: without that,
+changing `API_URL` in the Vercel project settings gets a **cache hit** and
+redeploys the previous build with the old origin still baked into the
+prerendered routes.
 
 Set `CORS_ORIGINS` on the API to the Vercel domain. The API answers with tenant
 data and session cookies, so the list is explicit and never a reflected origin.
