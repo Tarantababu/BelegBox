@@ -78,6 +78,10 @@ async function main(): Promise<void> {
     let ruleSet: RuleSet | undefined;
     if (process.env["RULESET_FILE"]) {
       ruleSet = loadRuleSet(await readFile(process.env["RULESET_FILE"], "utf8"));
+    } else {
+      // See the same note in apps/api: a missing rule set is a quieter,
+      // weaker pipeline rather than a visible failure, so it is announced.
+      console.warn("ruleset    none - L4 tenant rules will NOT run");
     }
 
     store = new PostgresDocumentStore({
@@ -123,6 +127,7 @@ async function main(): Promise<void> {
       metadataStore: store.constructor.name,
       retentionMode,
       bucket: process.env["S3_BUCKET_RAW"] ?? null,
+      ruleset: process.env["RULESET_FILE"] ?? null,
     },
     "ingest worker ready",
   );

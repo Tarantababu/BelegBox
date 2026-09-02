@@ -255,6 +255,36 @@ prerendered routes.
 Set `CORS_ORIGINS` on the API to the Vercel domain. The API answers with tenant
 data and session cookies, so the list is explicit and never a reflected origin.
 
+## Inbound mail
+
+The worker exposes `POST /inbound/postmark`, authenticated with HTTP Basic
+credentials embedded in the webhook URL — Postmark does not sign inbound
+webhooks, so that password is the only thing between the internet and an
+endpoint that writes to the archive. It must come from a generator.
+
+Three things have to line up, and only the last is in this repository:
+
+1. **A domain you control.** `INBOX_DOMAIN` is baked into every tenant's inbox
+   address at signup, so changing it later strands every address already given
+   to a supplier. Decide it before the first real tenant.
+2. **MX records** pointing at the provider's inbound servers, plus their SPF and
+   DKIM records. SPF, DKIM and DMARC results are stored with each document —
+   the mailbox is where a forged invoice with a swapped IBAN arrives, so the
+   verdict is part of the evidence, not a spam score.
+3. **The provider's inbound webhook** pointed at
+   `https://<worker>/inbound/postmark`, with the Basic credentials in the URL:
+   `https://hook:<POSTMARK_WEBHOOK_PASSWORD>@<worker>/inbound/postmark`.
+
+Redelivery is safe: the provider's message id is claimed once, and a second
+delivery of the same message answers `{"status":"duplicate","documents":0}`
+without archiving anything twice.
+
+`RULESET_FILE` must be set on **both** the API and the worker. Without it the
+pipeline still runs L1–L3 and returns a content verdict, so nothing looks
+broken — it is simply a weaker verdict, and a document that should be flagged
+comes back clean. Both processes now say so at startup rather than degrading
+quietly.
+
 ## Before the first real customer
 
 Two of these are hard gates, and neither can be cleared by writing more code:

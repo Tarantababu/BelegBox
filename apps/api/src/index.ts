@@ -26,7 +26,14 @@ const explain = await loadTemplateDir();
 let ruleSet: RuleSet | undefined;
 if (process.env["RULESET_FILE"]) {
   ruleSet = loadRuleSet(await readFile(process.env["RULESET_FILE"], "utf8"));
-  console.log(`ruleset ${process.env["RULESET_FILE"]}`);
+  console.log(`ruleset    ${process.env["RULESET_FILE"]} (L4 active)`);
+} else {
+  // Said out loud. Without a rule set the pipeline still runs L1-L3 and
+  // returns a content verdict, so nothing looks wrong - it is simply a weaker
+  // verdict than the same document would get elsewhere. This was missed twice
+  // in deployment, and both times the symptom was an invoice coming back clean
+  // that should not have.
+  console.warn("ruleset    none - L4 tenant rules will NOT run");
 }
 
 // Postmark when configured, otherwise a sender that prints and says so. A
