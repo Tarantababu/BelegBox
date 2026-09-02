@@ -61,6 +61,26 @@ export interface ValidateInput {
  * A syntactically perfect invoice can be materially wrong, and that pairing is
  * the whole product.
  */
+/**
+ * The ceiling on the deep parse, which is where the memory goes.
+ *
+ * Content rules need the whole invoice as an object tree - the totals in
+ * BR-CO-15 are checked against every line - and that tree costs roughly fifteen
+ * times the size of the file. A 25.7 MB Peppol invoice from the ZUGFeRD corpus
+ * therefore wanted about 400 MB, on a machine that has 512 MB, and the process
+ * was killed: the upload came back as a bare 502, and so did every other
+ * request being served by that machine at the time.
+ *
+ * An OOM is not a failed upload, it is an outage for whoever else was there.
+ * So the limit is stated rather than discovered, and the document above it is
+ * still archived, still detected, and still gets its form verdict from KoSIT -
+ * it is only the content layers that stand down, with the reason attached.
+ *
+ * 12 MB is far beyond any ordinary EN 16931 invoice; the only documents in the
+ * corpus anywhere near it are the two deliberately-large stress fixtures.
+ */
+const MAX_DEEP_PARSE_BYTES = 12 * 1024 * 1024;
+
 export async function validateDocument(
   input: ValidateInput,
   opts: ValidateOptions = {},
@@ -132,10 +152,21 @@ export async function validateDocument(
   let invoice: Invoice | undefined;
   let parseError: string | undefined;
 
-  try {
-    invoice = parseInvoice(input.bytes);
-  } catch (err) {
-    parseError = (err as Error).message;
+  if (input.bytes.length > MAX_DEEP_PARSE_BYTES) {
+    // Not a failure - a refusal, with the reasons stated. Everything cheap has
+    // already happened: the bytes are archived, the profile is known, and the
+    // KoSIT verdict stands. Only the content rules are skipped, and they say so
+    // rather than reporting silence as a pass.
+    parseError =
+      `Document is ${(input.bytes.length / 1_000_000).toFixed(1)} MB. ` +
+      `Content rules read the whole invoice into memory and are not run above ` +
+      `${MAX_DEEP_PARSE_BYTES / 1_000_000} MB.`;
+  } else {
+    try {
+      invoice = parseInvoice(input.bytes);
+    } catch (err) {
+      parseError = (err as Error).message;
+    }
   }
 
   let l3: LayerResult;

@@ -7,12 +7,35 @@ import {
   type Syntax,
 } from "./types.js";
 
+/**
+ * Detection reads the document header and nothing else: the root element, the
+ * guideline URN, and BT-1/BT-2/BT-3. `stopNodes` keeps the parser from building
+ * an object tree for the line items, which is where all the size lives.
+ *
+ * It is the difference between working and falling over. A 25.7 MB Peppol
+ * invoice from the ZUGFeRD corpus cost 312 MB of heap to parse in full, on a
+ * 512 MB machine - the API process was killed and the request came back as a
+ * bare 502, taking every other request on that machine with it. With the line
+ * items left as unparsed text it costs 7 MB and runs 4x faster.
+ *
+ * The full tree is still built where it is actually needed - parse.ts reads the
+ * line items to check the totals - but that is a different decision with a
+ * different budget, and detection should not pay for it.
+ */
 const parser = new XMLParser({
   ignoreAttributes: false,
   removeNSPrefix: true,
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,
+  stopNodes: [
+    "*.InvoiceLine",
+    "*.CreditNoteLine",
+    "*.IncludedSupplyChainTradeLineItem",
+    // Attachments are base64 inside the XML and can be larger than the invoice.
+    "*.EmbeddedDocumentBinaryObject",
+    "*.AttachmentBinaryObject",
+  ],
 });
 
 type Node = Record<string, unknown>;

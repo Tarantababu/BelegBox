@@ -46,6 +46,20 @@ function objectKeyFor(sha256: string): string {
  * DMARC to record, and inventing a "pass" would put a fabricated authentication
  * result on a document that will be read as evidence for ten years.
  */
+/**
+ * Detection codes that mean "we know what this is, and it is an invoice" -
+ * as opposed to "we could not make sense of this file".
+ *
+ * Both are refusals to validate against EN 16931, and only the first is a
+ * document worth keeping. Keeping them apart is what lets upload reject a
+ * delivery note while accepting a ten-year-old ZUGFeRD invoice.
+ */
+const NAMED_INVOICE_FORMATS = new Set(["zugferd_v1", "foreign_format"]);
+
+function isNamedInvoiceFormat(code: string | undefined): boolean {
+  return code !== undefined && NAMED_INVOICE_FORMATS.has(code);
+}
+
 export function registerUploadRoutes(app: FastifyInstance, deps: UploadRouteDeps): void {
   const maxBytes = deps.maxBytes ?? DEFAULT_MAX_ATTACHMENT_BYTES;
 
@@ -143,10 +157,20 @@ export function registerUploadRoutes(app: FastifyInstance, deps: UploadRouteDeps
     // the wrong one should not put it beyond reach for ten years - Object Lock
     // in COMPLIANCE mode cannot be undone by anyone, including us.
     //
-    // The test is whether a document was detected, not whether it is legally an
-    // e-invoice: a ZUGFeRD MINIMUM is detected and must still be accepted,
-    // since telling the user it is not a valid e-invoice (D-001) is the point.
-    const recognised = outcome.documents.filter((doc) => doc.detection);
+    // The test is whether the file was recognised as an invoice, not whether it
+    // is legally an e-invoice. A ZUGFeRD MINIMUM is detected and must still be
+    // accepted, since telling the user it is not a valid e-invoice (D-001) is
+    // the point - and by the same reasoning so must a format we identified by
+    // name and then declined to validate. ZUGFeRD 1.0 and fatturaPA are real
+    // invoices; "this is ZUGFeRD 1.0, which predates EN 16931" is exactly the
+    // answer the uploader came for, and refusing the file withholds it.
+    //
+    // Everything else still bounces: XML that is not an invoice, a PDF with no
+    // attachment, a root element we cannot name. Those are the wrong-file case
+    // the refusal exists for.
+    const recognised = outcome.documents.filter(
+      (doc) => doc.detection ?? isNamedInvoiceFormat(doc.detectionError?.code),
+    );
 
     if (recognised.length === 0) {
       return reply.code(422).send({

@@ -151,6 +151,51 @@ describe("manual upload", () => {
     expect(puts).toEqual([]);
   });
 
+  /**
+   * The other half of that rule. "We could not make sense of this file" and
+   * "this is ZUGFeRD 1.0, which predates EN 16931" are both refusals to
+   * validate, and only the first is the wrong-file case the 422 exists for.
+   *
+   * A ZUGFeRD 1.0 invoice is a real invoice. Telling the uploader what it is
+   * and why it does not count is the answer they came for, and bouncing the
+   * file withholds it - so it is archived like any other document and carries
+   * a D-000 finding that names the format.
+   */
+  it("accepts an invoice format it recognises but cannot validate", async () => {
+    const { puts, store: objectStore } = store();
+    app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });
+
+    const res = await app.inject({
+      url: "/v1/documents/upload",
+      method: "POST",
+      headers: { "content-type": "application/xml", "x-belegbox-filename": "zugferd10.xml" },
+      payload:
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<rsm:CrossIndustryDocument xmlns:rsm="urn:ferd:CrossIndustryDocument:invoice:1p0"/>',
+    });
+
+    // The archive write happens before any database work, so this is where
+    // acceptance is observable with a stubbed database. Under the old filter
+    // the request stopped at the 422 above and `puts` stayed empty.
+    expect(puts).toHaveLength(1);
+    expect(res.json().error).not.toBe("no_invoice");
+  });
+
+  it("still refuses XML that is not an invoice at all", async () => {
+    const { puts, store: objectStore } = store();
+    app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });
+
+    const res = await app.inject({
+      url: "/v1/documents/upload",
+      method: "POST",
+      headers: { "content-type": "application/xml", "x-belegbox-filename": "lieferschein.xml" },
+      payload: '<?xml version="1.0"?><DeliveryNote><Item>1</Item></DeliveryNote>',
+    });
+
+    expect(res.statusCode).toBe(422);
+    expect(puts).toEqual([]);
+  });
+
   it("refuses an empty body", async () => {
     const { store: objectStore } = store();
     app = await buildApi({ db: stubDb([]), authenticate: tenant, objectStore });

@@ -165,3 +165,49 @@ describe("status when the form check could not run", () => {
     expect(r.status).toBe("pending");
   });
 });
+
+/**
+ * Size, which is a memory question rather than a correctness one.
+ *
+ * The ZUGFeRD corpus carries two deliberately-large Peppol fixtures. The
+ * 25.7 MB one used to kill the API process outright - full parse wanted ~400 MB
+ * on a 512 MB machine - and the upload came back as a bare 502 along with
+ * every other request that machine was serving.
+ */
+describe("large documents", () => {
+  function bigInvoice(lines: number): Buffer {
+    const line = `<cac:InvoiceLine><cbc:ID>1</cbc:ID><cbc:Note>${"x".repeat(900)}</cbc:Note></cac:InvoiceLine>`;
+    return Buffer.from(
+      `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"` +
+        ` xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents"` +
+        ` xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents">` +
+        `<cbc:CustomizationID>urn:cen.eu:en16931:2017</cbc:CustomizationID>` +
+        `<cbc:ID>BIG-1</cbc:ID><cbc:IssueDate>2026-08-01</cbc:IssueDate>` +
+        line.repeat(lines) +
+        `</Invoice>`,
+      "utf8",
+    );
+  }
+
+  it("still identifies a document too large to read in full", async () => {
+    const bytes = bigInvoice(14_000); // ~13 MB, over the deep-parse ceiling
+    expect(bytes.length).toBeGreaterThan(12 * 1024 * 1024);
+
+    const r = await validateDocument({ filename: "big.xml", bytes }, { skipL1L2: true });
+
+    // Detection still works - it never needed the line items.
+    expect(r.detection.profile.legalClass).toBe("einvoice");
+    expect(r.status).not.toBe("not_einvoice");
+    // And the content layers say why they stood down, rather than reporting
+    // silence that would read as a pass.
+    expect(r.layers.l3_domain.ran).toBe(false);
+    expect(r.layers.l3_domain.skippedReason).toMatch(/not run above/);
+  });
+
+  it("reads an ordinary invoice in full, as before", async () => {
+    const bytes = bigInvoice(10); // a few KB
+    const r = await validateDocument({ filename: "small.xml", bytes }, { skipL1L2: true });
+    expect(r.layers.l3_domain.ran).toBe(true);
+  });
+});
