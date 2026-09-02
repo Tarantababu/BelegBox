@@ -168,8 +168,12 @@ export function detect(input: Buffer | string): DetectionResult {
   const xml = raw.replace(/^﻿/, "").trimStart();
 
   if (xml.startsWith("%PDF-")) {
+    // Reached when a PDF carries no invoice XML at all - a scan, or a
+    // paper-equivalent invoice printed to PDF. Worth saying in words a
+    // recipient can act on: this message is stored on the finding and shown
+    // beside the explanation.
     throw new DetectionError(
-      "PDF container - extract the embedded XML before detection (ingest worker, F1 week 1).",
+      "This PDF carries no embedded invoice XML, so there is no structured data to check. It is a paper-equivalent invoice.",
       "pdf_container",
     );
   }

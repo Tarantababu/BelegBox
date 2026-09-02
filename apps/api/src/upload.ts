@@ -202,14 +202,23 @@ export function registerUploadRoutes(app: FastifyInstance, deps: UploadRouteDeps
           : {}),
       });
 
+      // The invoice XML, not the container it arrived in. `doc.bytes` is what
+      // gets archived - the original PDF, byte for byte - while `doc.payload`
+      // is the XML that ingest pulled out of it. Validating the container meant
+      // detection saw `%PDF-` and answered "extract the embedded XML first", so
+      // every ZUGFeRD PDF uploaded through the web button came back
+      // `not_einvoice` with an internal note, however good the invoice inside
+      // was. The worker has always used the payload; only this path did not.
+      const payload = doc.payload?.bytes ?? doc.bytes;
+
       const result = await validateDocument(
-        { filename: doc.filename, bytes: doc.bytes },
+        { filename: doc.filename, bytes: payload },
         { client: mustang, ...(deps.ruleSet ? { ruleSet: deps.ruleSet } : {}) },
       );
 
       let invoice;
       try {
-        invoice = parseInvoice(doc.bytes);
+        invoice = parseInvoice(payload);
       } catch {
         // Not parseable is a verdict the pipeline already recorded; the row
         // still gets written, without the summary columns.
