@@ -7,6 +7,13 @@ export type DocumentFormat =
   | "xrechnung_cii"
   | "zugferd"
   | "peppol_bis"
+  /**
+   * Plain EN 16931 in UBL, following no national CIUS. Its CII counterpart is
+   * `zugferd`, because a bare EN 16931 guideline URN in CII *is* how ZUGFeRD's
+   * COMFORT profile identifies itself - there is no such convention in UBL, and
+   * calling these documents `other` said we did not recognise something we do.
+   */
+  | "en16931_ubl"
   | "other";
 
 /**
@@ -47,7 +54,13 @@ export class DetectionError extends Error {
       | "not_xml"
       | "pdf_container"
       | "unknown_root"
-      | "missing_profile",
+      | "missing_profile"
+      // Recognised, and recognised as something we must not validate against
+      // EN 16931 - because it is not an EN 16931 document. Saying so precisely
+      // is the point: "unknown root element" is what we said before, and it is
+      // both unhelpful and untrue when the format is one we can name.
+      | "zugferd_v1"
+      | "foreign_format",
   ) {
     super(message);
     this.name = "DetectionError";

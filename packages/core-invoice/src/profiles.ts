@@ -1,13 +1,5 @@
 import type { LegalClass, ProfileInfo } from "./types.js";
 
-interface ProfileRule {
-  /** Matched against the lower-cased guideline URN. */
-  match: (urn: string) => boolean;
-  name: string;
-  legalClass: LegalClass;
-  cius?: string;
-}
-
 /**
  * XRechnung identifies its CIUS by two different authorities.
  *
@@ -20,52 +12,48 @@ interface ProfileRule {
 const XRECHNUNG_CIUS = ["urn:xoev-de:kosit:standard:xrechnung", "urn:xeinkauf.de:kosit:xrechnung"];
 
 /**
- * Order matters: the first match wins, so the two profiles that are NOT
- * e-invoices are tested before the permissive `factur-x` prefix rules.
+ * The conformance level, which is what decides whether a document is an
+ * e-invoice at all.
+ *
+ * The level is the last colon-separated segment of the guideline URN, and it
+ * says the same thing whichever vendor namespace carries it:
+ *
+ *   urn:factur-x.eu:1p0:minimum
+ *   urn:zugferd.de:2p0:minimum
+ *   urn:cen.eu:en16931:2017#conformant#urn:zugferd.de:2p0:extended
+ *   urn:cen.eu:en16931:2017:compliant:factur-x.eu:1p0:basic
+ *
+ * Keying on the level rather than on the vendor is the fix for a real hole.
+ * The rules used to read `includes("factur-x.eu") && endsWith(":minimum")`, so
+ * ZUGFeRD 2.0's own namespace - `urn:zugferd.de:2p0:minimum`, which is in the
+ * official ZUGFeRD corpus - matched nothing and fell through to the unknown
+ * branch. That branch happens to answer `not_einvoice`, so the verdict looked
+ * correct while D-001 never fired: no finding, no explanation, no reason given.
+ * The same hole would have marked `urn:zugferd.de:2p0:basic` not_einvoice,
+ * which is simply wrong - BASIC is a full e-invoice.
+ *
+ * D-001: MINIMUM and BASIC WL carry no line-level data. They are accounting
+ * previews, not invoices, and most suppliers sending them believe otherwise.
  */
-const RULES: ProfileRule[] = [
-  {
-    // D-001 - no line-level data, accounting preview only.
-    match: (u) => u.includes("factur-x.eu") && u.endsWith(":minimum"),
-    name: "ZUGFeRD 2.x / Factur-X MINIMUM",
-    legalClass: "not_einvoice",
-  },
-  {
-    // D-001 - "without lines", likewise not an e-invoice.
-    match: (u) => u.includes("factur-x.eu") && u.endsWith(":basicwl"),
-    name: "ZUGFeRD 2.x / Factur-X BASIC WL",
-    legalClass: "not_einvoice",
-  },
-  {
-    match: (u) => XRECHNUNG_CIUS.some((cius) => u.includes(cius)),
-    name: "XRechnung",
-    legalClass: "einvoice",
-    cius: "xrechnung",
-  },
-  {
-    match: (u) => u.includes("factur-x.eu") && u.endsWith(":basic"),
-    name: "ZUGFeRD 2.x / Factur-X BASIC",
-    legalClass: "einvoice",
-  },
-  {
-    match: (u) => u.includes("factur-x.eu") && u.endsWith(":extended"),
-    name: "ZUGFeRD 2.x / Factur-X EXTENDED",
-    legalClass: "einvoice",
-  },
-  {
-    match: (u) => u.startsWith("urn:fdc:peppol.eu:2017:poacc:billing"),
-    name: "Peppol BIS Billing 3.0",
-    legalClass: "einvoice",
-    cius: "peppol-bis",
-  },
-  {
-    // Plain EN 16931 (ZUGFeRD calls this profile COMFORT).
-    match: (u) => u.startsWith("urn:cen.eu:en16931:2017"),
-    name: "EN 16931 (COMFORT)",
-    legalClass: "einvoice",
-  },
+const LEVELS: Array<{ suffix: string; name: string; legalClass: LegalClass }> = [
+  { suffix: "minimum", name: "MINIMUM", legalClass: "not_einvoice" },
+  { suffix: "basicwl", name: "BASIC WL", legalClass: "not_einvoice" },
+  { suffix: "basic", name: "BASIC", legalClass: "einvoice" },
+  { suffix: "extended", name: "EXTENDED", legalClass: "einvoice" },
+  { suffix: "comfort", name: "COMFORT", legalClass: "einvoice" },
+  { suffix: "en16931", name: "EN 16931 (COMFORT)", legalClass: "einvoice" },
 ];
 
+/** Vendor markers for the ZUGFeRD / Factur-X family, which is level-bearing. */
+const ZUGFERD_MARKERS = ["factur-x.eu", "zugferd.de"];
+
+/** Peppol BIS Billing 3.0, which appears bare and as an EN 16931 refinement. */
+const PEPPOL_MARKER = "urn:fdc:peppol.eu:2017:poacc:billing";
+
+function levelOf(urn: string): (typeof LEVELS)[number] | undefined {
+  const last = urn.split(":").pop() ?? "";
+  return LEVELS.find((l) => l.suffix === last);
+}
 /**
  * Extracts the XRechnung CIUS version from a customization URN, e.g.
  * `...xrechnung_3.0` -> `3.0`. The patch level (3.0.2) is a bundle version and
@@ -83,21 +71,51 @@ export function xrechnungVersion(urn: string): string | undefined {
  * profile must surface to a human rather than pass silently. Downstream this
  * becomes a `warning`, never a `form_error` - only L1/L2 may set the form
  * verdict.
+ *
+ * Likewise a ZUGFeRD URN whose conformance level we do not recognise. Knowing
+ * the family without knowing the level tells us nothing about whether there is
+ * line-level data, and guessing "e-invoice" on a profile we cannot name is the
+ * one direction that is unsafe.
  */
 export function classifyProfile(rawUrn: string): ProfileInfo {
   const urn = rawUrn.trim();
   const needle = urn.toLowerCase();
 
-  for (const rule of RULES) {
-    if (!rule.match(needle)) continue;
+  // ZUGFeRD / Factur-X first: its URNs embed the EN 16931 one, so testing for
+  // EN 16931 before the level would swallow every profile into "COMFORT".
+  if (ZUGFERD_MARKERS.some((marker) => needle.includes(marker))) {
+    const level = levelOf(needle);
+    if (!level) {
+      return {
+        urn,
+        name: "ZUGFeRD / Factur-X, unrecognised conformance level",
+        legalClass: "not_einvoice",
+      };
+    }
+    return { urn, name: `ZUGFeRD 2.x / Factur-X ${level.name}`, legalClass: level.legalClass };
+  }
 
-    const version = rule.cius === "xrechnung" ? xrechnungVersion(urn) : undefined;
+  if (XRECHNUNG_CIUS.some((cius) => needle.includes(cius))) {
+    const version = xrechnungVersion(urn);
     return {
       urn,
-      name: version ? `${rule.name} ${version}` : rule.name,
-      legalClass: rule.legalClass,
-      ...(rule.cius ? { cius: rule.cius } : {}),
+      name: version ? `XRechnung ${version}` : "XRechnung",
+      legalClass: "einvoice",
+      cius: "xrechnung",
     };
+  }
+
+  if (needle.includes(PEPPOL_MARKER)) {
+    return {
+      urn,
+      name: "Peppol BIS Billing 3.0",
+      legalClass: "einvoice",
+      cius: "peppol-bis",
+    };
+  }
+
+  if (needle.startsWith("urn:cen.eu:en16931:2017")) {
+    return { urn, name: "EN 16931 (COMFORT)", legalClass: "einvoice" };
   }
 
   return { urn, name: "Unrecognised profile", legalClass: "not_einvoice" };

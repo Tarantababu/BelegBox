@@ -16,11 +16,15 @@
  *      one invoice and does not say so is worse than one that fails outright.
  */
 
+/** Mirrors @belegbox/core-invoice's DocumentFormat. Kept in step by hand: this
+ *  package deliberately has no dependency on the invoice parser, because a
+ *  bundle of archived bytes must be buildable without one. */
 export type DocumentFormat =
   | "xrechnung_ubl"
   | "xrechnung_cii"
   | "zugferd"
   | "peppol_bis"
+  | "en16931_ubl"
   | "other";
 
 /** One document as the export sees it. */

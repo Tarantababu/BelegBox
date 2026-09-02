@@ -1,0 +1,29 @@
+key: domain.d000.zugferd_v1
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      „{filename}“ ist eine ZUGFeRD-1.0-Rechnung. Das Format ist älter als
+      EN 16931 und trägt eine andere Datenstruktur.
+    legal_basis: >-
+      Eine E-Rechnung im Sinne des § 14 Abs. 1 Satz 3 UStG muss dem Format der
+      Richtlinie 2014/55/EU entsprechen, also EN 16931. ZUGFeRD 1.0 stammt aus
+      der Zeit davor und erfüllt diese Vorgabe nicht; es gilt damit als sonstige
+      Rechnung.
+    next_step: >-
+      Aufbewahrungspflichtig ist das Dokument trotzdem. Der Rechnungssteller
+      kann eine Fassung ab ZUGFeRD 2.x oder als XRechnung senden.
+  tr:
+    observation: >-
+      „{filename}“ bir ZUGFeRD 1.0 faturası. Bu biçim EN 16931'den eskidir ve
+      farklı bir veri yapısı taşır.
+    legal_basis: >-
+      § 14 Abs. 1 Satz 3 UStG anlamında bir e-fatura, 2014/55/AB sayılı
+      direktifin biçimine, yani EN 16931'e uymak zorundadır. ZUGFeRD 1.0 bundan
+      öncesine aittir ve bu koşulu karşılamaz; bu nedenle sonstige Rechnung
+      sayılır.
+    next_step: >-
+      Belge yine de saklanmak zorundadır. Faturayı kesen taraf ZUGFeRD 2.x veya
+      XRechnung olarak bir sürüm gönderebilir.

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@belegbox/core-invoice": "workspace:*",
+    "@belegbox/ingest": "workspace:*",
     "@belegbox/rules-engine": "workspace:*"
   }
 }

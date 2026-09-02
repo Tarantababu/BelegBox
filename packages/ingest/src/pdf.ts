@@ -31,17 +31,33 @@ export function looksLikePdf(bytes: Buffer): boolean {
 /**
  * Pulls embedded files out of a PDF/A-3 container.
  *
- * This is a deliberately narrow scanner, not a PDF parser: it walks indirect
- * objects looking for `/Type /EmbeddedFile` streams and inflates them. It does
- * not resolve the document catalogue, the name tree, or cross-reference
- * streams.
+ * A narrow scanner, not a PDF parser: it walks indirect objects looking for
+ * `/Type /EmbeddedFile` streams and inflates them. It does not resolve the
+ * document catalogue, the name tree, or cross-reference streams, and it cannot
+ * see objects hidden inside a compressed `/ObjStm`.
  *
- * That is a knowing trade for F1 week 1. Authoritative extraction moves to
- * mustang-svc in week 2-3, where Mustangproject does it properly against the
- * real specification. Until then the contract is: extract what is
- * unambiguous, and when anything is unclear return a problem rather than a
- * guess. A document whose XML cannot be extracted becomes `not_einvoice` with
- * a finding - it is never silently dropped, and never reported as clean.
+ * It does now resolve *indirect references* for the two things that decide
+ * whether extraction is correct rather than merely successful:
+ *
+ *   `/Length 200 0 R`  - the byte count of the stream
+ *   `/EF 19 0 R`       - the filespec's embedded-file dictionary
+ *
+ * Both are written that way by Mustangproject's own output and by every
+ * ZUGFeRD 1.0 sample in the ZUGFeRD corpus, and taking the first integer after
+ * `/Length` used to read `200` as a length - producing a clean, well-formed,
+ * 200-byte *prefix* of a 6526-byte invoice. That is the failure mode this
+ * scanner most has to avoid: not an error, but a plausible-looking truncation
+ * that the XML parser then rejects for an unrelated-sounding reason.
+ *
+ * So the declared length is now believed only when the bytes it points at are
+ * actually followed by `endstream`. When they are not, the keyword wins. A
+ * length that disagrees with the container is wrong by definition, and there is
+ * no case where guessing is better than measuring.
+ *
+ * The contract remains: extract what is unambiguous, and when anything is
+ * unclear return a problem rather than a guess. A document whose XML cannot be
+ * extracted becomes `not_einvoice` with a finding - never silently dropped, and
+ * never reported as clean.
  */
 export function extractEmbeddedFiles(pdf: Buffer): PdfExtractionResult {
   if (!looksLikePdf(pdf)) {
@@ -59,7 +75,8 @@ export function extractEmbeddedFiles(pdf: Buffer): PdfExtractionResult {
     };
   }
 
-  const names = filespecNames(text);
+  const index = indexObjects(text);
+  const names = filespecNames(text, index);
   const files: EmbeddedFile[] = [];
   const problems: string[] = [];
 
@@ -78,7 +95,7 @@ export function extractEmbeddedFiles(pdf: Buffer): PdfExtractionResult {
     const dict = text.slice(bodyStart, streamStart);
     if (!isEmbeddedFileDict(dict)) continue;
 
-    const raw = streamBytes(pdf, text, streamStart, dict);
+    const raw = streamBytes(pdf, text, streamStart, dict, index);
     if (!raw) {
       problems.push(`Object ${objNum}: stream is truncated.`);
       continue;
@@ -119,35 +136,105 @@ function isEmbeddedFileDict(dict: string): boolean {
 }
 
 /**
- * Maps an embedded-file object number to the filename declared in the filespec
- * that points at it: `/F (factur-x.xml) ... /EF << /F 12 0 R >>`.
+ * Where each object's body begins and ends, so an indirect reference can be
+ * followed without parsing the cross-reference table.
  *
- * A filespec living inside a compressed object stream is invisible to this
- * scan; the caller then falls back to a synthetic name, which costs nothing
- * because the content is what gets classified.
+ * Offsets rather than substrings: an embedded invoice is small but the
+ * container around it need not be, and there is no reason to copy a megabyte
+ * of font stream to read one integer out of a different object.
  */
-function filespecNames(text: string): Map<number, string> {
-  const out = new Map<number, string>();
-  const efRe = /\/EF\s*<<([^>]*)>>/g;
+type ObjectIndex = Map<number, { start: number; end: number }>;
+
+function indexObjects(text: string): ObjectIndex {
+  const index: ObjectIndex = new Map();
+  const re = /(\d+)\s+(\d+)\s+obj\b/g;
   let m: RegExpExecArray | null;
 
-  while ((m = efRe.exec(text)) !== null) {
-    const refs = [...(m[1] ?? "").matchAll(/\/(?:F|UF)\s+(\d+)\s+\d+\s+R/g)].map((r) =>
-      Number(r[1]),
-    );
-    if (refs.length === 0) continue;
+  while ((m = re.exec(text)) !== null) {
+    const num = Number(m[1]);
+    const start = m.index + m[0].length;
+    const end = text.indexOf("endobj", start);
+    // A later generation of the same object number supersedes an earlier one,
+    // which is the direction an incremental update writes in.
+    index.set(num, { start, end: end < 0 ? text.length : end });
+  }
+  return index;
+}
 
-    // The filespec's own /F (name) sits just before the /EF entry.
-    const before = text.slice(Math.max(0, m.index - 400), m.index);
-    const nameMatch = [...before.matchAll(/\/(?:UF|F)\s*\(((?:\\.|[^\\)])*)\)/g)].pop();
+/** The body of one object, capped - every lookup here reads a short scalar or dict. */
+function objectBody(text: string, index: ObjectIndex, num: number, max = 4096): string {
+  const at = index.get(num);
+  if (!at) return "";
+  return text.slice(at.start, Math.min(at.end, at.start + max));
+}
+
+/**
+ * Resolves `N` or `N 0 R` to a number.
+ *
+ * The distinction is the whole bug: `/Length 200 0 R` and `/Length 200` are
+ * different statements, and reading the first as the second truncates a stream
+ * to the *object number* of its length. Matching the reference form first is
+ * what keeps them apart.
+ */
+function resolveNumber(raw: string, text: string, index: ObjectIndex): number | undefined {
+  const indirect = /^(\d+)\s+(\d+)\s+R\b/.exec(raw);
+  if (indirect) {
+    const value = /^\s*(\d+)/.exec(objectBody(text, index, Number(indirect[1]), 64));
+    return value ? Number(value[1]) : undefined;
+  }
+  const direct = /^(\d+)/.exec(raw);
+  return direct ? Number(direct[1]) : undefined;
+}
+
+/**
+ * Maps an embedded-file object number to the filename declared in the filespec
+ * that points at it.
+ *
+ * Two spellings, both in the corpus:
+ *
+ *   /F (factur-x.xml)       ... /EF << /F 12 0 R >>     inline dictionary
+ *   /F (ZUGFeRD-invoice.xml) ... /EF 19 0 R             indirect dictionary
+ *
+ * Only the first used to be recognised, so every ZUGFeRD 1.0 sample fell back
+ * to a synthetic `embedded-93.xml`. That name never matches
+ * KNOWN_INVOICE_FILENAMES, which is how a PDF carrying an invoice *and* an
+ * unrelated attachment would have had the invoice deselected.
+ *
+ * A filespec living inside a compressed object stream is still invisible to
+ * this scan; the caller then falls back to a synthetic name, which costs
+ * nothing on a single-attachment container because the content is what gets
+ * classified.
+ */
+function filespecNames(text: string, index: ObjectIndex): Map<number, string> {
+  const out = new Map<number, string>();
+  // Anchored on /Type /Filespec so the name and its /EF come from one object
+  // rather than from whatever happened to sit within 400 characters.
+  const specRe = /\/Type\s*\/Filespec\b/g;
+  let m: RegExpExecArray | null;
+
+  while ((m = specRe.exec(text)) !== null) {
+    const body = text.slice(m.index, Math.min(text.length, m.index + 1200));
+    const nameMatch = /\/(?:UF|F)\s*\(((?:\\.|[^\\)])*)\)/.exec(body);
     if (!nameMatch?.[1]) continue;
-
     const filename = decodePdfString(nameMatch[1]);
-    for (const ref of refs) {
+
+    for (const ref of embeddedFileRefs(body, text, index)) {
       if (!out.has(ref)) out.set(ref, filename);
     }
   }
   return out;
+}
+
+/** The object numbers an `/EF` entry points at, inline or indirect. */
+function embeddedFileRefs(body: string, text: string, index: ObjectIndex): number[] {
+  const ef = /\/EF\s*(<<[\s\S]*?>>|\d+\s+\d+\s+R)/.exec(body)?.[1];
+  if (!ef) return [];
+
+  const dict = ef.startsWith("<<")
+    ? ef
+    : objectBody(text, index, Number(/^(\d+)/.exec(ef)?.[1]));
+
+  return [...dict.matchAll(/\/(?:F|UF)\s+(\d+)\s+\d+\s+R/g)].map((r) => Number(r[1]));
 }
 
 function decodePdfString(raw: string): string {
@@ -180,17 +267,25 @@ function streamBytes(
   text: string,
   streamKeywordAt: number,
   dict: string,
+  index: ObjectIndex,
 ): Buffer | null {
   // The stream data begins after the EOL that follows the `stream` keyword.
   let start = streamKeywordAt + "stream".length;
   if (text[start] === "\r") start += 1;
   if (text[start] === "\n") start += 1;
 
-  const declared = /\/Length\s+(\d+)\b/.exec(dict)?.[1];
-  if (declared) {
-    const end = start + Number(declared);
-    if (end <= pdf.length) return pdf.subarray(start, end);
-    // Length is an indirect reference or simply wrong; fall through to endstream.
+  const declared = /\/Length\s+([^/>\]]+)/.exec(dict)?.[1];
+  const length = declared ? resolveNumber(declared.trim(), text, index) : undefined;
+
+  if (length !== undefined) {
+    const end = start + length;
+    // Believed only if it lands where a stream actually ends. A declared length
+    // that does not is wrong about this container, and trusting it produces a
+    // well-formed prefix of the truth - which is worse than an error, because
+    // nothing downstream can tell a short invoice from a truncated one.
+    if (end <= pdf.length && /^\s*endstream/.test(text.slice(end, end + 16))) {
+      return pdf.subarray(start, end);
+    }
   }
 
   const end = text.indexOf("endstream", start);

@@ -13,6 +13,7 @@
     "lint": "turbo run lint",
     "validate": "tsx apps/cli/src/index.ts validate",
     "corpus:snapshot": "pnpm --filter @belegbox/cli test",
+    "corpus:fetch": "bash scripts/fetch-zugferd-corpus.sh",
     "svc:up": "docker compose up -d",
     "svc:down": "docker compose down"
   },

@@ -16,3 +16,6 @@ corpus/vendor/
 
 # Vercel project link (ids, not secrets - but local state).
 .vercel
+
+# Vendored third-party corpora, fetched by scripts/fetch-zugferd-corpus.sh
+corpus/vendor/

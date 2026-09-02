@@ -214,6 +214,9 @@ importers:
       '@belegbox/core-invoice':
         specifier: workspace:*
         version: link:../core-invoice
+      '@belegbox/ingest':
+        specifier: workspace:*
+        version: link:../ingest
       '@belegbox/rules-engine':
         specifier: workspace:*
         version: link:../rules-engine

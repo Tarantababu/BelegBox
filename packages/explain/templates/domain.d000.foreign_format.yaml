@@ -1,0 +1,29 @@
+key: domain.d000.foreign_format
+version: 1
+approved: false
+required_params: [filename]
+locales:
+  de:
+    observation: >-
+      „{filename}“ folgt einem nationalen E-Rechnungsformat eines anderen
+      Landes, nicht EN 16931. Die Datei ist gültig, nur nicht nach den hier
+      geltenden Regeln prüfbar.
+    legal_basis: >-
+      Für den inländischen B2B-Umsatz knüpft § 14 UStG an das Format der
+      Richtlinie 2014/55/EU an, also EN 16931 in den Syntaxen UBL und CII.
+      Nationale Formate anderer Mitgliedstaaten fallen nicht darunter.
+    next_step: >-
+      Bei Leistungen aus dem Ausland ist das der Normalfall. Die Rechnung wird
+      unverändert archiviert; eine Formprüfung nach EN 16931 findet nicht statt.
+  tr:
+    observation: >-
+      „{filename}“ başka bir ülkenin ulusal e-fatura biçimini izliyor, EN
+      16931'i değil. Dosya geçerli, yalnızca burada geçerli kurallara göre
+      denetlenemez.
+    legal_basis: >-
+      Yurt içi B2B işlemleri için § 14 UStG, 2014/55/AB direktifinin biçimine,
+      yani UBL ve CII sözdizimlerindeki EN 16931'e bağlanır. Diğer üye
+      devletlerin ulusal biçimleri bu kapsama girmez.
+    next_step: >-
+      Yurt dışından alınan hizmetlerde bu olağandır. Fatura değiştirilmeden
+      arşivlenir; EN 16931'e göre biçim denetimi yapılmaz.

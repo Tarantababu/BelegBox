@@ -36,6 +36,35 @@ function buildPdfWithAttachment(name: string, payload: Buffer): Buffer {
   return Buffer.concat([head, stream, tail]);
 }
 
+/**
+ * The same container, written the way Mustangproject and every ZUGFeRD 1.0
+ * sample write it: `/Length` and `/EF` as indirect references rather than
+ * inline values.
+ *
+ * Both forms are legal PDF. Only the inline one used to be understood.
+ */
+function buildPdfWithIndirectRefs(name: string, payload: Buffer): Buffer {
+  const stream = deflateSync(payload);
+  const head = Buffer.from(
+    `%PDF-1.7\n` +
+      `1 0 obj << /Type /Catalog /Names << /EmbeddedFiles << /Names [ (${name}) 2 0 R ] >> >> >> endobj\n` +
+      // /EF points at a dictionary object instead of holding one.
+      `2 0 obj << /Type /Filespec /F (${name}) /AFRelationship /Alternative /UF (${name}) /EF 4 0 R >> endobj\n` +
+      // The length lives in its own object, so the integer beside /Length is an
+      // object number - 5, not a byte count.
+      `3 0 obj << /Type /EmbeddedFile /Subtype /text#2Fxml /Filter /FlateDecode /Length 5 0 R >> stream\n`,
+    "latin1",
+  );
+  const tail = Buffer.from(
+    `\nendstream endobj\n` +
+      `4 0 obj << /F 3 0 R >> endobj\n` +
+      `5 0 obj\n${stream.length}\nendobj\n` +
+      `trailer << /Root 1 0 R >>\n%%EOF\n`,
+    "latin1",
+  );
+  return Buffer.concat([head, stream, tail]);
+}
+
 function message(attachments: RawAttachment[], over: Partial<InboundMessage> = {}): InboundMessage {
   return {
     provider: "postmark",
@@ -170,6 +199,46 @@ describe("PDF embedded file extraction", () => {
   it("rejects input that is not a PDF", () => {
     expect(extractEmbeddedFiles(Buffer.from("<Invoice/>")).problem).toBe("Not a PDF container.");
   });
+
+  /**
+   * The bug this pins down. `/Length 5 0 R` is a reference to object 5; reading
+   * the 5 as a byte count produced a five-byte "invoice". On the real corpus
+   * that was `/Length 200 0 R` yielding a clean 200-byte prefix of a 6526-byte
+   * document - extraction reported success, and the XML parser then failed with
+   * "Pi Tag is not closed", which names nothing that went wrong.
+   */
+  it("resolves an indirect /Length instead of truncating the stream", async () => {
+    const xml = await fixture("zugferd-en16931-01.xml");
+    const result = extractEmbeddedFiles(buildPdfWithIndirectRefs("factur-x.xml", xml));
+
+    expect(result.problem).toBeUndefined();
+    expect(result.files[0]?.bytes.equals(xml)).toBe(true);
+  });
+
+  it("resolves an indirect /EF so the filename is the real one", async () => {
+    const xml = await fixture("zugferd-en16931-01.xml");
+    const result = extractEmbeddedFiles(buildPdfWithIndirectRefs("ZUGFeRD-invoice.xml", xml));
+
+    // Without this the name fell back to a synthetic `embedded-3.xml`, which
+    // never matches a known invoice filename - so a container holding an
+    // invoice beside an unrelated attachment could deselect the invoice.
+    expect(result.files[0]?.filename).toBe("ZUGFeRD-invoice.xml");
+    expect(result.files[0]?.isKnownInvoiceName).toBe(true);
+  });
+
+  it("prefers the endstream keyword when a declared length disagrees", async () => {
+    const xml = await fixture("zugferd-en16931-01.xml");
+    const pdf = buildPdfWithAttachment("factur-x.xml", xml);
+    // Corrupt the declared length to something shorter but still plausible.
+    const broken = Buffer.from(
+      pdf.toString("latin1").replace(/\/Length \d+/, "/Length 12"),
+      "latin1",
+    );
+
+    const result = extractEmbeddedFiles(broken);
+    expect(result.files[0]?.bytes.equals(xml)).toBe(true);
+  });
+
 });
 
 describe("ingestMessage", () => {
