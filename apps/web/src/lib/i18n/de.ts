@@ -294,6 +294,11 @@ export const de = {
   "err.datevRequired": "Zeitraum, Beraternummer und Mandantennummer sind erforderlich.",
   "err.doku.badVersion": "Ungültige Fassung.",
   "err.doku.notFound": "Diese Fassung gibt es nicht.",
+  "doc.rawLabel": "Wortlaut der Prüfung",
+  "doc.rawNote": "Die Prüfwerkzeuge formulieren selbst — der offizielle KoSIT-Validator meist auf Englisch. Dieser Text wird unverändert wiedergegeben und nicht übersetzt, damit er zu dem passt, was der Lieferant bei sich sieht.",
+  "doc.explanationPending": "Die Erklärung zu dieser Regel ist geschrieben, aber juristisch noch nicht freigegeben, und wird deshalb nicht angezeigt.",
+  "doc.technicalDetails": "Technische Angaben aus der Prüfung",
+  "doc.explanationLanguage": "Diese Erklärung ist auf Deutsch.",
 } as const;
 
 export type Key = keyof typeof de;

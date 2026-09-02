@@ -273,4 +273,9 @@ export const it: Dict = {
   "err.datevRequired": "Periodo, Beraternummer e Mandantennummer sono obbligatori.",
   "err.doku.badVersion": "Versione non valida.",
   "err.doku.notFound": "Questa versione non esiste.",
+  "doc.rawLabel": "Come lo dice il controllo",
+  "doc.rawNote": "Gli strumenti di controllo scrivono da sé questo testo — il validatore ufficiale KoSIT di solito in inglese. È riportato alla lettera e non tradotto, così coincide con quello che il fornitore vede da parte sua.",
+  "doc.explanationPending": "La spiegazione di questa regola è scritta ma non ha ancora superato la verifica legale, quindi non viene mostrata.",
+  "doc.technicalDetails": "Valori tecnici del controllo",
+  "doc.explanationLanguage": "Questa spiegazione è in tedesco — non esiste ancora un testo verificato legalmente in italiano.",
 };

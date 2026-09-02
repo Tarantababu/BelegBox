@@ -273,4 +273,9 @@ export const ro: Dict = {
   "err.datevRequired": "Perioada, Beraternummer și Mandantennummer sunt obligatorii.",
   "err.doku.badVersion": "Versiune nevalidă.",
   "err.doku.notFound": "Versiunea aceasta nu există.",
+  "doc.rawLabel": "Formularea verificării",
+  "doc.rawNote": "Instrumentele de verificare își formulează singure textul — validatorul oficial KoSIT de obicei în engleză. Este redat cuvânt cu cuvânt și nu se traduce, ca să se potrivească cu ce vede furnizorul la el.",
+  "doc.explanationPending": "Explicația pentru această regulă este scrisă, dar nu a trecut încă verificarea juridică, așa că nu se afișează.",
+  "doc.technicalDetails": "Valori tehnice din verificare",
+  "doc.explanationLanguage": "Explicația este în germană — încă nu există un text verificat juridic în română.",
 };

@@ -273,4 +273,9 @@ export const pl: Dict = {
   "err.datevRequired": "Okres, Beraternummer i Mandantennummer są wymagane.",
   "err.doku.badVersion": "Niepoprawna wersja.",
   "err.doku.notFound": "Takiej wersji nie ma.",
+  "doc.rawLabel": "Brzmienie kontroli",
+  "doc.rawNote": "Narzędzia kontrolne formułują to same — oficjalny walidator KoSIT najczęściej po angielsku. Tekst podajemy dosłownie i nie tłumaczymy, żeby zgadzał się z tym, co u siebie widzi dostawca.",
+  "doc.explanationPending": "Wyjaśnienie do tej reguły jest napisane, ale nie przeszło jeszcze kontroli prawnej, więc go nie pokazujemy.",
+  "doc.technicalDetails": "Dane techniczne z kontroli",
+  "doc.explanationLanguage": "To wyjaśnienie jest po niemiecku — nie ma jeszcze tekstu sprawdzonego prawnie po polsku.",
 };

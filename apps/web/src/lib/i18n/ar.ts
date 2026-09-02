@@ -283,4 +283,9 @@ export const ar: Dict = {
   "err.datevRequired": "الفترة وBeraternummer وMandantennummer مطلوبة.",
   "err.doku.badVersion": "نسخة غير صالحة.",
   "err.doku.notFound": "لا توجد هذه النسخة.",
+  "doc.rawLabel": "نص الفحص كما ورد",
+  "doc.rawNote": "أدوات الفحص تصوغ هذا بنفسها — ومدقّق KoSIT الرسمي بالإنجليزية غالبًا. يُنقل النص حرفيًا ولا يُترجم، ليطابق ما يراه مورّدك لديه.",
+  "doc.explanationPending": "شرح هذه القاعدة مكتوب لكنه لم يجتز المراجعة القانونية بعد، ولذلك لا يُعرض.",
+  "doc.technicalDetails": "قيم تقنية من الفحص",
+  "doc.explanationLanguage": "هذا الشرح بالألمانية — لا يوجد بعد نص مراجَع قانونيًا بالعربية.",
 };

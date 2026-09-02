@@ -272,4 +272,9 @@ export const en: Dict = {
   "err.datevRequired": "Period, Beraternummer and Mandantennummer are required.",
   "err.doku.badVersion": "Invalid version.",
   "err.doku.notFound": "There is no such version.",
+  "doc.rawLabel": "What the checker said",
+  "doc.rawNote": "The checking tools word this themselves — the official KoSIT validator usually in English. It is reproduced verbatim and not translated, so that it matches what your supplier sees at their end.",
+  "doc.explanationPending": "The explanation for this rule is written but has not cleared its legal review, so it is not shown.",
+  "doc.technicalDetails": "Technical values from the check",
+  "doc.explanationLanguage": "This explanation is in German — there is no legally reviewed text in English yet.",
 };

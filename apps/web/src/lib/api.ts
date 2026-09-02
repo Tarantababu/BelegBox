@@ -53,6 +53,11 @@ export interface Finding {
   messageRaw: string;
   params: Record<string, string | number>;
   explanation: Explanation | null;
+  /**
+   * Why there is no explanation, when the API had one to give but would not.
+   * Today that is only the unapproved-template gate.
+   */
+  explanationWithheld?: string;
   versions: { validatorConfig: string; engine: string; ruleset: number | null };
 }
 

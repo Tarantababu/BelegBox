@@ -273,4 +273,9 @@ export const tr: Dict = {
   "err.datevRequired": "Dönem, Beraternummer ve Mandantennummer zorunlu.",
   "err.doku.badVersion": "Geçersiz sürüm.",
   "err.doku.notFound": "Böyle bir sürüm yok.",
+  "doc.rawLabel": "Denetimin kendi ifadesi",
+  "doc.rawNote": "Denetim araçları kendi metnini yazar — resmî KoSIT doğrulayıcısı çoğunlukla İngilizce. Bu metin, tedarikçinin kendi tarafında gördüğüyle örtüşsün diye olduğu gibi aktarılır ve çevrilmez.",
+  "doc.explanationPending": "Bu kurala ait açıklama yazıldı, ancak hukuki onayı henüz tamamlanmadı; bu yüzden gösterilmiyor.",
+  "doc.technicalDetails": "Denetimden gelen teknik veriler",
+  "doc.explanationLanguage": "Bu açıklama Almanca — bu dilde henüz hukuki denetimden geçmiş metin yok.",
 };
