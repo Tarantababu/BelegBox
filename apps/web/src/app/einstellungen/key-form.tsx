@@ -1,20 +1,19 @@
 "use client";
 
 import { useActionState } from "react";
+import { translator, type Dict } from "../../lib/i18n";
 import { createKeyAction, type KeyState } from "./actions";
 
-export function KeyForm() {
+export function KeyForm({ dict }: { dict: Dict }) {
+  const t = translator(dict);
   const [state, action, pending] = useActionState<KeyState, FormData>(createKeyAction, {});
+  const error = state.errorKey ? t(state.errorKey) : state.error;
 
   if (state.token) {
     return (
       <div className="sec">
-        <h3>Schlüssel „{state.name}“</h3>
-        <p className="note">
-          Dieser Schlüssel wird nur jetzt angezeigt. Gespeichert ist nur seine
-          Prüfsumme — es gibt keinen Weg, ihn später noch einmal zu sehen. Geht
-          er verloren, wird er ersetzt, nicht wiederhergestellt.
-        </p>
+        <h3>{t("acct.keyShown", { name: state.name ?? "" })}</h3>
+        <p className="note">{t("acct.keyOnce")}</p>
         <p className="code">{state.token}</p>
       </div>
     );
@@ -23,22 +22,22 @@ export function KeyForm() {
   return (
     <form action={action}>
       <div className="sec">
-        <h3>Neuen Schlüssel anlegen</h3>
-        {state.error ? <p className="err">{state.error}</p> : null}
+        <h3>{t("acct.newKeyTitle")}</h3>
+        {error ? <p className="err">{error}</p> : null}
         <div className="field">
-          <label htmlFor="key-name">Name</label>
-          <input id="key-name" name="name" required placeholder="z. B. Kassensystem" />
-          <p className="hint">Wofür der Schlüssel benutzt wird — sichtbar in der Liste.</p>
+          <label htmlFor="key-name">{t("acct.colName")}</label>
+          <input id="key-name" name="name" required placeholder={t("acct.keyNamePlaceholder")} />
+          <p className="hint">{t("acct.keyNameHint")}</p>
         </div>
         <div className="field">
-          <label htmlFor="key-env">Umgebung</label>
+          <label htmlFor="key-env">{t("acct.colEnv")}</label>
           <select id="key-env" name="environment" defaultValue="live">
             <option value="live">live</option>
             <option value="test">test</option>
           </select>
         </div>
         <div className="field">
-          <label htmlFor="key-password">Aktuelles Passwort</label>
+          <label htmlFor="key-password">{t("common.currentPassword")}</label>
           <input
             id="key-password"
             name="password"
@@ -48,7 +47,7 @@ export function KeyForm() {
           />
         </div>
         <button className="btn solid" type="submit" disabled={pending}>
-          {pending ? "Wird angelegt…" : "Schlüssel anlegen"}
+          {pending ? t("acct.creatingKey") : t("acct.createKey")}
         </button>
       </div>
     </form>

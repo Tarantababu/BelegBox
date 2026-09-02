@@ -1,3 +1,4 @@
+import { resolvePublicUi } from "../../../lib/i18n/server";
 import { ConfirmForm } from "./form";
 
 /**
@@ -13,6 +14,7 @@ export default async function ResetConfirmPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const { t, dict } = await resolvePublicUi();
 
   return (
     <div className="shell">
@@ -26,14 +28,11 @@ export default async function ResetConfirmPage({
       </header>
 
       <div className="pad">
-        <h1>Neues Passwort</h1>
-        <p className="sub">
-          Danach wirst du auf allen Geräten abgemeldet — auch dort, wo du es
-          vielleicht nicht selbst warst.
-        </p>
+        <h1>{t("reset.newTitle")}</h1>
+        <p className="sub">{t("reset.newSub")}</p>
       </div>
 
-      <ConfirmForm token={token} />
+      <ConfirmForm token={token} dict={dict} />
     </div>
   );
 }

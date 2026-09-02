@@ -1,20 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getInbox, getTenant, type DocumentSummary } from "../../lib/api";
+import { resolveUi } from "../../lib/i18n/server";
+import type { Translate } from "../../lib/i18n";
 import { day, money, STATUS_META } from "../../lib/status";
 import { Chrome } from "../nav";
 
 export const dynamic = "force-dynamic";
 
-function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
+function Row({ doc, t }: { doc: DocumentSummary; t: Translate }) {
   const meta = STATUS_META[doc.status];
-  const label = locale === "tr" ? meta.tr : meta.de;
 
   return (
     <Link className="row" href={`/documents/${doc.id}`}>
       <span className={`spine ${meta.spine}`} />
       <span className="rmain">
-        <b>{doc.supplier ?? "Unbekannter Absender"}</b>
+        <b>{doc.supplier ?? t("common.unknownSender")}</b>
         <span>
           {doc.invoiceNumber ? `${doc.invoiceNumber} · ` : ""}
           {day(doc.issuedAt)}
@@ -23,7 +24,7 @@ function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
       </span>
       <span className="rside">
         <span className="amt">{money(doc.totalGross)}</span>
-        <span className={`tag ${meta.spine}`}>{label}</span>
+        <span className={`tag ${meta.spine}`}>{t(meta.key)}</span>
       </span>
     </Link>
   );
@@ -36,6 +37,7 @@ export default async function Inbox({
 }) {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
+  const { t } = await resolveUi();
 
   const params = await searchParams;
   const inbox = await getInbox({
@@ -50,7 +52,11 @@ export default async function Inbox({
 
   return (
     <div className="shell">
-      <Chrome tenantName={tenant.name} current={params.status === "clean" ? "archive" : "inbox"} />
+      <Chrome
+        tenantName={tenant.name}
+        current={params.status === "clean" ? "archive" : "inbox"}
+        t={t}
+      />
 
       {params.fehler ? (
         <div className="pad" style={{ paddingBottom: 0 }}>
@@ -67,27 +73,24 @@ export default async function Inbox({
         action="/inbox/upload"
         encType="multipart/form-data"
       >
-        <label htmlFor="file">Rechnung hochladen</label>
+        <label htmlFor="file">{t("inbox.uploadLabel")}</label>
         <input id="file" name="file" type="file" accept=".xml,.pdf,application/xml,text/xml,application/pdf" required />
-        <button className="btn" type="submit">Prüfen</button>
-        <p className="hint">
-          XRechnung (XML) oder ZUGFeRD/Factur-X (PDF). Die Datei wird
-          unverändert archiviert, wie eine per E-Mail eingegangene.
-        </p>
+        <button className="btn" type="submit">{t("inbox.uploadSubmit")}</button>
+        <p className="hint">{t("inbox.uploadHint")}</p>
       </form>
 
       <div className="stats">
         <div className="stat">
           <b>{total}</b>
-          <span>Belege gesamt</span>
+          <span>{t("inbox.statTotal")}</span>
         </div>
         <div className="stat w">
           <b>{needsAttention}</b>
-          <span>Zu prüfen</span>
+          <span>{t("inbox.statAttention")}</span>
         </div>
         <div className="stat">
           <b>{counts["not_einvoice"] ?? 0}</b>
-          <span>Keine E-Rechnung</span>
+          <span>{t("inbox.statNotEinvoice")}</span>
         </div>
       </div>
 
@@ -97,23 +100,22 @@ export default async function Inbox({
           type="search"
           name="q"
           defaultValue={params.q ?? ""}
-          placeholder="Lieferant oder Rechnungsnummer suchen"
-          aria-label="Suchen"
+          placeholder={t("inbox.searchPlaceholder")}
+          aria-label={t("common.search")}
         />
         <button className="btn" type="submit">
-          Suchen
+          {t("common.search")}
         </button>
       </form>
 
       {documents.length > 0 ? (
-        documents.map((doc) => <Row key={doc.id} doc={doc} locale={tenant.locale} />)
+        documents.map((doc) => <Row key={doc.id} doc={doc} t={t} />)
       ) : (
         /* An empty state is an invitation, not an apology (PRD § 5.3). It
            answers the only question a new user has here: what do I do now? */
         <div className="empty">
-          <b>Noch nichts angekommen.</b>
-          Neue E-Rechnungen landen automatisch hier, sobald ein Lieferant an
-          deine Adresse sendet:
+          <b>{t("inbox.emptyTitle")}</b>
+          {t("inbox.emptyBody")}
           <pre className="code">{tenant.inboxAddress}</pre>
         </div>
       )}

@@ -59,6 +59,10 @@ a { color: inherit; text-decoration: none; }
   margin: 0 auto;
   min-height: 100vh;
   background: var(--card);
+  /* Symmetric, so these stay physical: there is no start or end side to get
+     wrong. Everything in this file that is one-sided uses logical properties,
+     because the interface renders in Arabic too and dir="rtl" does not flip
+     border-left. */
   border-left: 1px solid var(--rule);
   border-right: 1px solid var(--rule);
 }
@@ -77,8 +81,8 @@ header.top {
 .tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--petrol); font-weight: 500; }
 
 .stats { display: flex; border-bottom: 1px solid var(--rule); }
-.stat { flex: 1; padding: 14px 18px; border-right: 1px solid var(--rule); }
-.stat:last-child { border-right: 0; }
+.stat { flex: 1; padding: 14px 18px; border-inline-end: 1px solid var(--rule); }
+.stat:last-child { border-inline-end: 0; }
 .stat b { display: block; font-family: var(--mono); font-size: 22px; font-weight: 500; line-height: 1.15; }
 .stat span { display: block; font-size: 12px; color: var(--ink2); margin-top: 3px; }
 .stat.w b { color: var(--ochre); }
@@ -111,7 +115,7 @@ button.btn:hover, .btn:hover { border-color: var(--ink3); }
 .rmain { padding: 13px 14px; min-width: 0; }
 .rmain b { display: block; font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rmain span { display: block; font-size: 12.5px; color: var(--ink2); margin-top: 2px; }
-.rside { padding: 13px 18px 13px 8px; text-align: right; display: flex; flex-direction: column; justify-content: center; }
+.rside { padding-block: 13px; padding-inline: 8px 18px; text-align: end; display: flex; flex-direction: column; justify-content: center; }
 .amt { font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
 .tag { font-size: 11.5px; margin-top: 3px; color: var(--ink2); }
 .tag.ok { color: var(--petrol); }
@@ -120,7 +124,7 @@ button.btn:hover, .btn:hover { border-color: var(--ink3); }
 
 .empty { padding: 40px 18px; text-align: center; color: var(--ink2); font-size: 14px; }
 .empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 6px; }
-.empty .code { text-align: left; margin-top: 14px; }
+.empty .code { text-align: start; margin-top: 14px; }
 .back { font-size: 14px; color: var(--ink2); padding: 14px 18px; display: block; }
 .back:hover { color: var(--ink); }
 .pad { padding: 18px; }
@@ -150,7 +154,12 @@ h3 { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
 .vd.bad .vv, .vd.bad .vt { color: var(--brick); }
 .vd.none .vv { color: var(--ink2); }
 
-.ai { background: var(--petrol-bg); border-left: 3px solid var(--petrol); border-radius: 0 3px 3px 0; padding: 13px 15px; }
+.ai {
+  background: var(--petrol-bg); border-inline-start: 3px solid var(--petrol);
+  border-start-start-radius: 0; border-start-end-radius: 3px;
+  border-end-end-radius: 3px; border-end-start-radius: 0;
+  padding: 13px 15px;
+}
 .ai .lbl { color: var(--petrol); font-weight: 500; }
 .ai p { margin: 0 0 9px; font-size: 15px; line-height: 1.6; color: var(--ink); }
 .ai p.basis { font-size: 13.5px; color: var(--ink2); line-height: 1.55; }
@@ -164,7 +173,12 @@ h3 { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
 .ai details p { font-size: 13.5px; margin-top: 8px; }
 .ai details p.disclaimer { border-top: 0; padding-top: 0; }
 
-.warnbox { background: var(--ochre-bg); border-left: 3px solid var(--ochre); border-radius: 0 3px 3px 0; padding: 12px 14px; font-size: 13.5px; line-height: 1.6; }
+.warnbox {
+  background: var(--ochre-bg); border-inline-start: 3px solid var(--ochre);
+  border-start-start-radius: 0; border-start-end-radius: 3px;
+  border-end-end-radius: 3px; border-end-start-radius: 0;
+  padding: 12px 14px; font-size: 13.5px; line-height: 1.6;
+}
 .field { margin-bottom: 13px; }
 .field label { display: block; font-size: 13px; color: var(--ink2); margin-bottom: 5px; }
 .field input, .field select { width: 100%; }
@@ -175,7 +189,10 @@ table.led { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.led td { padding: 6px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
 table.led tr:last-child td { border-bottom: 0; }
 table.led td:first-child { color: var(--ink2); }
-table.led td:last-child { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; word-break: break-all; padding-left: 10px; }
+table.led td:last-child {
+  text-align: end; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  word-break: break-all; padding-inline-start: 10px;
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
 /* Fassungen of the Verfahrensdokumentation. A history, so it reads as rows in
@@ -184,7 +201,7 @@ table.led td:last-child { text-align: right; font-family: var(--mono); font-vari
 table.vers { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 table.vers th, table.vers td {
   padding: 9px 18px; border-bottom: 1px solid var(--rule);
-  text-align: left; vertical-align: baseline;
+  text-align: start; vertical-align: baseline;
 }
 table.vers thead th {
   font-size: 11.5px; font-weight: 500; color: var(--ink3);
@@ -192,17 +209,21 @@ table.vers thead th {
 }
 table.vers td:first-child, table.vers th:first-child { font-variant-numeric: tabular-nums; }
 table.vers td.mono { font-family: var(--mono); font-size: 12px; color: var(--ink2); }
-table.vers td:last-child { text-align: right; }
+table.vers td:last-child { text-align: end; }
 table.vers a { color: var(--petrol); }
 
 .alert {
   font-size: 13px; color: var(--brick); background: var(--paper);
-  border-left: 3px solid var(--brick); border-radius: 0 3px 3px 0;
+  border-inline-start: 3px solid var(--brick);
+  border-start-start-radius: 0; border-start-end-radius: 3px;
+  border-end-end-radius: 3px; border-end-start-radius: 0;
   padding: 9px 12px; margin: 0;
 }
 p.ok {
   font-size: 13px; color: var(--petrol); background: var(--paper);
-  border-left: 3px solid var(--petrol); border-radius: 0 3px 3px 0;
+  border-inline-start: 3px solid var(--petrol);
+  border-start-start-radius: 0; border-start-end-radius: 3px;
+  border-end-end-radius: 3px; border-end-start-radius: 0;
   padding: 9px 12px; margin: 0;
 }
 
@@ -230,3 +251,10 @@ p.ok {
   background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;
   padding: 8px 10px; text-align: center;
 }
+
+/* Language picker in the header of the public screens. Small, because it is
+   not what anyone came for - but present on the first screen, because someone
+   who cannot read German cannot sign in to reach the account setting. */
+.langswitch { display: flex; gap: 6px; margin-inline-start: auto; align-items: center; }
+.langswitch select { font-size: 13px; padding: 5px 8px; }
+.langswitch button { padding: 5px 10px; font-size: 13px; }

@@ -69,6 +69,11 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
   const authenticate = opts.authenticate ?? buildAuthenticator(opts.db);
   const resolveTenant = async (request: FastifyRequest): Promise<string | undefined> =>
     (await authenticate(request))?.tenantId;
+  // The session already carries the person's language, so this costs nothing
+  // beyond the authentication that was happening anyway. Undefined for an API
+  // key, which has no person and therefore no preference.
+  const resolveLanguage = async (request: FastifyRequest): Promise<string | undefined> =>
+    (await authenticate(request))?.locale;
   const resolveUser = async (request: FastifyRequest): Promise<string | undefined> =>
     (await authenticate(request))?.userId ?? undefined;
 
@@ -228,6 +233,7 @@ export async function buildApi(opts: ApiOptions): Promise<FastifyInstance> {
       db: opts.db,
       explain: opts.explain,
       resolveTenant,
+      resolveLanguage,
       ...(opts.allowUnapprovedTemplates !== undefined
         ? { allowUnapprovedTemplates: opts.allowUnapprovedTemplates }
         : {}),

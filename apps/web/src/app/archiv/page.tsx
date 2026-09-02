@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTenant, searchArchive, type ArchiveSearch, type DocumentSummary } from "../../lib/api";
+import { resolveUi } from "../../lib/i18n/server";
+import type { Translate } from "../../lib/i18n";
 import { day, money, STATUS_META } from "../../lib/status";
 import { Chrome } from "../nav";
 
@@ -8,16 +10,15 @@ export const dynamic = "force-dynamic";
 
 const PAGE = 25;
 
-function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
+function Row({ doc, t }: { doc: DocumentSummary; t: Translate }) {
   const meta = STATUS_META[doc.status];
-  // The same label the inbox shows. Hardcoding German here gave a Turkish
-  // tenant "Temiz" on one screen and "Sachfehler" on the next.
-  const label = locale === "tr" ? meta.tr : meta.de;
+  // The same label the inbox shows, from the same key. Hardcoding German here
+  // gave a Turkish tenant "Temiz" on one screen and "Sachfehler" on the next.
   return (
     <Link className="row" href={`/documents/${doc.id}`}>
       <span className={`spine ${meta.spine}`} />
       <span className="rmain">
-        <b>{doc.supplier ?? "Unbekannter Absender"}</b>
+        <b>{doc.supplier ?? t("common.unknownSender")}</b>
         <span>
           {doc.invoiceNumber ? `${doc.invoiceNumber} · ` : ""}
           {day(doc.issuedAt)}
@@ -25,7 +26,7 @@ function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
       </span>
       <span className="rside">
         <span className="amt">{money(doc.totalGross)}</span>
-        <span className={`tag ${meta.spine}`}>{label}</span>
+        <span className={`tag ${meta.spine}`}>{t(meta.key)}</span>
       </span>
     </Link>
   );
@@ -39,34 +40,30 @@ function Row({ doc, locale }: { doc: DocumentSummary; locale: string }) {
  * years in, a user who reads the second as the first concludes an invoice was
  * never received.
  */
-function Verdict({ result, term }: { result: ArchiveSearch; term: string }) {
-  const count = result.totalIsLowerBound ? `über ${result.total}` : `${result.total}`;
-  const noun = !result.totalIsLowerBound && result.total === 1 ? "Beleg" : "Belege";
+function Verdict({ result, term, t }: { result: ArchiveSearch; term: string; t: Translate }) {
+  const count = result.totalIsLowerBound
+    ? t("archive.over", { n: result.total })
+    : `${result.total}`;
+  const noun =
+    !result.totalIsLowerBound && result.total === 1 ? t("archive.docOne") : t("archive.docMany");
 
   if (result.documents.length === 0) {
     return (
       <p className="note">
-        {term
-          ? `Kein Beleg zu „${term}“ im Archiv — auch keiner mit ähnlicher Schreibweise.`
-          : "Keine Belege in diesem Zeitraum."}
+        {term ? t("archive.emptyTerm", { term }) : t("archive.emptyPeriod")}
       </p>
     );
   }
 
   if (result.mode === "similar") {
-    return (
-      <p className="alert">
-        Keine genaue Übereinstimmung mit „{term}“. {count} {noun} mit ähnlicher
-        Schreibweise:
-      </p>
-    );
+    return <p className="alert">{t("archive.similar", { term, count, noun })}</p>;
   }
 
   return (
     <p className="note">
       {count} {noun}
-      {term ? ` zu „${term}“` : ""}
-      {result.amount !== null ? ` — als Betrag gelesen: ${money(result.amount)}` : ""}
+      {term ? t("archive.forTerm", { term }) : ""}
+      {result.amount !== null ? t("archive.asAmount", { amount: money(result.amount) }) : ""}
     </p>
   );
 }
@@ -84,6 +81,7 @@ export default async function ArchivePage({
 }) {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
+  const { t } = await resolveUi();
 
   const params = await searchParams;
   const term = params.q ?? "";
@@ -111,80 +109,87 @@ export default async function ArchivePage({
 
   return (
     <div className="shell">
-      <Chrome tenantName={tenant.name} current="archiv" />
+      <Chrome tenantName={tenant.name} current="archiv" t={t} />
 
       <div className="pad">
-        <h1>Archiv</h1>
-        <p className="sub">
-          Alle Belege, auch die aus früheren Jahren. Namen werden in jeder
-          Schreibweise gefunden — Şahin, Sahin, Getränke, Getraenke.
-        </p>
+        <h1>{t("archive.title")}</h1>
+        <p className="sub">{t("archive.sub")}</p>
       </div>
 
       <form className="pad" style={{ paddingTop: 0 }} method="get" action="/archiv">
         <div className="field">
-          <label htmlFor="q">Lieferant, Rechnungsnummer, USt-IdNr. oder Betrag</label>
-          <input id="q" name="q" type="search" defaultValue={term} placeholder="z. B. Müller, GM-88213, 428,40" />
+          <label htmlFor="q">{t("archive.qLabel")}</label>
+          <input
+            id="q"
+            name="q"
+            type="search"
+            defaultValue={term}
+            placeholder={t("archive.qPlaceholder")}
+          />
         </div>
         <div className="row2">
           <div className="field">
-            <label htmlFor="from">Rechnungsdatum von</label>
+            <label htmlFor="from">{t("archive.fromLabel")}</label>
             <input id="from" name="from" type="date" defaultValue={params.from ?? ""} />
           </div>
           <div className="field">
-            <label htmlFor="to">bis</label>
+            <label htmlFor="to">{t("archive.toLabel")}</label>
             <input id="to" name="to" type="date" defaultValue={params.to ?? ""} />
           </div>
         </div>
         <div className="row2">
           <div className="field">
-            <label htmlFor="status">Status</label>
+            <label htmlFor="status">{t("archive.statusLabel")}</label>
+            {/* The same five words the rows and the inbox use. They used to be
+                a second, lowercase set written only here, so a filter said
+                "inhaltlicher Befund" for the status the row next to it called
+                "Sachfehler". */}
             <select id="status" name="status" defaultValue={params.status ?? ""}>
-              <option value="">alle</option>
-              <option value="clean">geprüft</option>
-              <option value="form_error">Formfehler</option>
-              <option value="content_error">inhaltlicher Befund</option>
-              <option value="not_einvoice">keine E-Rechnung</option>
-              <option value="pending">in Prüfung</option>
+              <option value="">{t("archive.statusAll")}</option>
+              <option value="clean">{t("status.clean")}</option>
+              <option value="form_error">{t("status.form_error")}</option>
+              <option value="content_error">{t("status.content_error")}</option>
+              <option value="not_einvoice">{t("status.not_einvoice")}</option>
+              <option value="pending">{t("status.pending")}</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="min">Betrag von / bis</label>
+            <label htmlFor="min">{t("archive.amountLabel")}</label>
             <div className="row2">
               <input id="min" name="min" inputMode="decimal" defaultValue={params.min ?? ""} placeholder="0" />
               <input id="max" name="max" inputMode="decimal" defaultValue={params.max ?? ""} placeholder="∞" />
             </div>
           </div>
         </div>
-        <button className="btn solid" type="submit">Suchen</button>
+        <button className="btn solid" type="submit">{t("common.search")}</button>
       </form>
 
       {result === null ? (
         <div className="sec">
-          <p className="alert">Die Suche ist gerade nicht erreichbar.</p>
+          <p className="alert">{t("archive.unavailable")}</p>
         </div>
       ) : (
         <>
           <div className="sec">
-            <Verdict result={result} term={term} />
+            <Verdict result={result} term={term} t={t} />
           </div>
 
           {result.documents.map((doc) => (
-            <Row key={doc.id} doc={doc} locale={tenant.locale} />
+            <Row key={doc.id} doc={doc} t={t} />
           ))}
 
           {(offset > 0 || result.documents.length === PAGE) && (
             <div className="pad pager">
               {offset > 0 ? (
                 <Link className="btn" href={page(Math.max(offset - PAGE, 0))}>
-                  Zurück
+                  {t("common.back")}
                 </Link>
               ) : (
                 <span />
               )}
               {result.documents.length === PAGE ? (
                 <Link className="btn" href={page(offset + PAGE)}>
-                  Weiter
+                  {t("common.next")}
                 </Link>
               ) : (
                 <span />

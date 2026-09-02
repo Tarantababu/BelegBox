@@ -2,8 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createTenantAccount } from "../../lib/api";
+import type { Key } from "../../lib/i18n";
 
 export interface SetupState {
+  errorKey?: Key;
+  /** The API's own words, when nothing in the dictionary covers the failure. */
   error?: string;
 }
 
@@ -23,10 +26,10 @@ export async function setupAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!name) return { error: "Bitte den Firmennamen eingeben." };
-  if (!email.includes("@")) return { error: "Bitte eine gültige E-Mail-Adresse eingeben." };
+  if (!name) return { errorKey: "err.needCompanyName" };
+  if (!email.includes("@")) return { errorKey: "err.emailInvalid" };
   if (password.length < 12) {
-    return { error: "Das Passwort braucht mindestens 12 Zeichen. Länge zählt mehr als Sonderzeichen." };
+    return { errorKey: "err.passwordTooShort" };
   }
 
   const taxId = String(formData.get("taxId") ?? "").trim();

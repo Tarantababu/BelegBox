@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchVerfahrensdokuHtml } from "../../../lib/api";
+import { resolveUi } from "../../../lib/i18n/server";
 
 /**
  * Serves one stored fassung.
@@ -16,12 +17,14 @@ export async function GET(
   const parsed = Number(version);
 
   if (!Number.isInteger(parsed) || parsed < 1) {
-    return new NextResponse("Ungültige Fassung.", { status: 400 });
+    const { t } = await resolveUi();
+    return new NextResponse(t("err.doku.badVersion"), { status: 400 });
   }
 
   const html = await fetchVerfahrensdokuHtml(parsed);
   if (html === null) {
-    return new NextResponse("Diese Fassung gibt es nicht.", { status: 404 });
+    const { t } = await resolveUi();
+    return new NextResponse(t("err.doku.notFound"), { status: 404 });
   }
 
   return new NextResponse(html, {

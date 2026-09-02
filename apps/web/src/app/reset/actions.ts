@@ -1,12 +1,13 @@
 "use server";
 
 import { requestPasswordReset } from "../../lib/api";
+import type { Key } from "../../lib/i18n";
 
 export interface RequestState {
   done?: boolean;
   /** Development only: the API returns the link when configured to. */
   link?: string;
-  error?: string;
+  errorKey?: Key;
 }
 
 /**
@@ -21,12 +22,12 @@ export async function requestResetAction(
 ): Promise<RequestState> {
   const email = String(formData.get("email") ?? "").trim();
   if (!email.includes("@")) {
-    return { error: "Bitte eine gültige E-Mail-Adresse eingeben." };
+    return { errorKey: "err.emailInvalid" };
   }
 
   const result = await requestPasswordReset(email);
   if (!result.ok) {
-    return { error: "Das hat gerade nicht geklappt. Bitte versuch es noch einmal." };
+    return { errorKey: "err.reset.failed" };
   }
   return { done: true, ...(result.link ? { link: result.link } : {}) };
 }

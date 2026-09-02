@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 export const API_URL = process.env["API_URL"] ?? "http://localhost:8082";
 
@@ -80,7 +81,13 @@ export interface DocumentDetail {
 export interface Tenant {
   id: string;
   name: string;
+  /** The business's default - what a new colleague inherits. */
   locale: string;
+  /**
+   * What THIS session should be rendered in: the signed-in person's own
+   * setting, falling back to the tenant default. Read this, not `locale`.
+   */
+  language: string;
   industry: string | null;
   inboxAddress: string | null;
 }
@@ -153,8 +160,48 @@ export async function logout(): Promise<void> {
   }).catch(() => undefined);
 }
 
-export function getTenant(): Promise<Tenant | undefined> {
+/**
+ * Deduplicated for the render pass.
+ *
+ * Every page already called this once. The layout now calls it too, to know
+ * which language and text direction to put on <html>, and so does the language
+ * resolver - three fetches of the same thing for one screen. `cache` collapses
+ * them back into one; the data is still `no-store` and nothing is held across
+ * requests.
+ */
+export const getTenant = cache(function getTenant(): Promise<Tenant | undefined> {
   return call<Tenant>("/v1/tenant");
+});
+
+/**
+ * Changes the signed-in person's interface language.
+ *
+ * Returns the code the API confirms, so the caller writes the cookie from what
+ * was actually stored rather than from what it asked for - a rejected language
+ * must not leave a cookie claiming otherwise.
+ */
+export async function setLanguage(
+  language: string,
+): Promise<{ ok: true; language: string } | { ok: false; error: string }> {
+  const token = await currentSession();
+  if (!token) return { ok: false, error: "unauthorized" };
+
+  const response = await fetch(`${API_URL}/v1/account/language`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      cookie: `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    },
+    body: JSON.stringify({ language }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: detail.error ?? `language change failed (${response.status})` };
+  }
+  const body = (await response.json()) as { language: string };
+  return { ok: true, language: body.language };
 }
 
 export function getInbox(params: {

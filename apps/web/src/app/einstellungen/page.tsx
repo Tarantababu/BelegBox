@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
 import { getMfaStatus, getTenant, listApiKeys } from "../../lib/api";
+import { languageFor } from "../../lib/i18n";
+import { resolveUi } from "../../lib/i18n/server";
 import { Chrome } from "../nav";
 import { revokeKeyAction } from "./actions";
 import { KeyForm } from "./key-form";
+import { LanguageForm } from "./language-form";
 import { MfaForm } from "./mfa-form";
 
 export const dynamic = "force-dynamic";
 
-function germanDate(iso: string | null): string {
+function shortDate(iso: string | null): string {
   if (!iso) return "—";
   const date = new Date(iso);
   const day = String(date.getUTCDate()).padStart(2, "0");
@@ -18,46 +21,48 @@ function germanDate(iso: string | null): string {
 export default async function SettingsPage() {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
+  const { t, dict, lang } = await resolveUi();
 
   const [mfa, keys] = await Promise.all([getMfaStatus(), listApiKeys()]);
   // listApiKeys answers 403 for anyone but the owner, and returns null here.
   const isOwner = keys !== null;
+  const language = languageFor(lang);
 
   return (
     <div className="shell">
-      <Chrome tenantName={tenant.name} current="einstellungen" />
+      <Chrome tenantName={tenant.name} current="einstellungen" t={t} />
 
       <div className="pad">
-        <h1>Konto</h1>
-        <p className="sub">Zweiter Faktor und Zugangsschlüssel.</p>
+        <h1>{t("nav.account")}</h1>
+        <p className="sub">{t("acct.sub")}</p>
       </div>
 
-      <MfaForm recoveryCodesLeft={mfa?.recoveryCodesLeft ?? 0} />
+      {/* Whether explanations exist in this language is a fact about the
+          language, so it comes from the registry rather than from a list
+          repeated here. */}
+      <LanguageForm dict={dict} current={lang} hasExplanations={language.hasExplanations} />
+
+      <MfaForm recoveryCodesLeft={mfa?.recoveryCodesLeft ?? 0} dict={dict} />
 
       {isOwner ? (
         <>
           <div className="sec">
-            <h2>API-Schlüssel</h2>
-            <p className="sub">
-              Für eigene Anbindungen — ein Kassensystem, das Rechnungen
-              übergibt. Ein Schlüssel authentifiziert den Mandanten, nicht eine
-              Person: er kann keinen zweiten Faktor ändern und keine weiteren
-              Schlüssel anlegen.
-            </p>
+            <h2>{t("acct.keysTitle")}</h2>
+            <p className="sub">{t("acct.keysSub")}</p>
           </div>
 
           {keys.length === 0 ? (
             <div className="sec">
-              <p className="note">Es gibt noch keine Schlüssel.</p>
+              <p className="note">{t("acct.keysNone")}</p>
             </div>
           ) : (
             <table className="vers">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Umgebung</th>
-                  <th>Kennung</th>
-                  <th>Zuletzt benutzt</th>
+                  <th>{t("acct.colName")}</th>
+                  <th>{t("acct.colEnv")}</th>
+                  <th>{t("acct.colPrefix")}</th>
+                  <th>{t("acct.colLastUsed")}</th>
                   <th />
                 </tr>
               </thead>
@@ -67,15 +72,17 @@ export default async function SettingsPage() {
                     <td>{key.name}</td>
                     <td>{key.environment}</td>
                     <td className="mono">{key.prefix}…</td>
-                    <td>{germanDate(key.lastUsedAt)}</td>
+                    <td>{shortDate(key.lastUsedAt)}</td>
                     <td>
                       {key.revokedAt ? (
-                        <span className="tag">gesperrt {germanDate(key.revokedAt)}</span>
+                        <span className="tag">
+                          {t("acct.revoked", { date: shortDate(key.revokedAt) })}
+                        </span>
                       ) : (
                         <form action={revokeKeyAction}>
                           <input type="hidden" name="id" value={key.id} />
                           <button className="btn" type="submit">
-                            Sperren
+                            {t("acct.revoke")}
                           </button>
                         </form>
                       )}
@@ -86,13 +93,11 @@ export default async function SettingsPage() {
             </table>
           )}
 
-          <KeyForm />
+          <KeyForm dict={dict} />
         </>
       ) : (
         <div className="sec">
-          <p className="note">
-            API-Schlüssel verwaltet der Inhaber des Kontos.
-          </p>
+          <p className="note">{t("acct.ownerOnly")}</p>
         </div>
       )}
     </div>

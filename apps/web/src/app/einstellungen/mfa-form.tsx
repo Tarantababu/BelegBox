@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { translator, type Dict } from "../../lib/i18n";
 import { beginMfaAction, confirmMfaAction, type MfaState } from "./actions";
 
 /**
@@ -8,7 +9,14 @@ import { beginMfaAction, confirmMfaAction, type MfaState } from "./actions";
  * themselves out: prove who you are, scan the new secret, prove the scan
  * worked, and only then is the old authenticator retired.
  */
-export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
+export function MfaForm({
+  recoveryCodesLeft,
+  dict,
+}: {
+  recoveryCodesLeft: number;
+  dict: Dict;
+}) {
+  const t = translator(dict);
   const [begun, beginAction, beginning] = useActionState<MfaState, FormData>(
     beginMfaAction,
     {},
@@ -18,17 +26,15 @@ export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
     begun,
   );
 
-  const state = confirmed.recoveryCodes || confirmed.error ? confirmed : begun;
+  const state =
+    confirmed.recoveryCodes || confirmed.error || confirmed.errorKey ? confirmed : begun;
+  const error = state.errorKey ? t(state.errorKey) : state.error;
 
   if (state.recoveryCodes) {
     return (
       <div className="sec">
-        <h3>Wiederherstellungscodes</h3>
-        <p className="note">
-          Jeder Code funktioniert einmal, anstelle des Codes aus der App. Sie
-          werden nur jetzt angezeigt — bitte ausdrucken oder in den
-          Passwortmanager legen. Alle anderen Sitzungen wurden beendet.
-        </p>
+        <h3>{t("mfa.recoveryTitle")}</h3>
+        <p className="note">{t("mfa.recoveryNote")}</p>
         <ul className="codes">
           {state.recoveryCodes.map((code) => (
             <li key={code}>{code}</li>
@@ -42,21 +48,17 @@ export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
     return (
       <form action={confirmAction}>
         <div className="sec">
-          <h3>Neuen Code scannen</h3>
-          <p className="note">
-            In der Authenticator-App hinzufügen, dann den angezeigten Code
-            eingeben. Der bisherige zweite Faktor gilt so lange weiter, bis der
-            neue bestätigt ist.
-          </p>
+          <h3>{t("mfa.scanTitle")}</h3>
+          <p className="note">{t("mfa.scanNote")}</p>
           <p className="code">{state.secret}</p>
           {state.uri ? (
             <p className="hint">
-              Oder diesen Link in der App öffnen: <code>{state.uri}</code>
+              {t("mfa.orLink")} <code>{state.uri}</code>
             </p>
           ) : null}
-          {state.error ? <p className="err">{state.error}</p> : null}
+          {error ? <p className="err">{error}</p> : null}
           <div className="field">
-            <label htmlFor="code">Code aus der App</label>
+            <label htmlFor="code">{t("mfa.codeLabel")}</label>
             <input
               id="code"
               name="code"
@@ -67,7 +69,7 @@ export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
             />
           </div>
           <button className="btn solid" type="submit" disabled={confirming}>
-            {confirming ? "Wird geprüft…" : "Bestätigen"}
+            {confirming ? t("mfa.confirming") : t("mfa.confirm")}
           </button>
         </div>
       </form>
@@ -77,15 +79,15 @@ export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
   return (
     <form action={beginAction}>
       <div className="sec">
-        <h3>Zwei-Faktor-Anmeldung</h3>
+        <h3>{t("mfa.title")}</h3>
         <p className="note">
           {recoveryCodesLeft > 0
-            ? `${recoveryCodesLeft} Wiederherstellungscodes sind noch nicht verbraucht.`
-            : "Es sind keine Wiederherstellungscodes hinterlegt. Beim Neueinrichten werden zehn erzeugt."}
+            ? t("mfa.codesLeft", { n: recoveryCodesLeft })
+            : t("mfa.codesNone")}
         </p>
-        {state.error ? <p className="err">{state.error}</p> : null}
+        {error ? <p className="err">{error}</p> : null}
         <div className="field">
-          <label htmlFor="mfa-password">Aktuelles Passwort</label>
+          <label htmlFor="mfa-password">{t("common.currentPassword")}</label>
           <input
             id="mfa-password"
             name="password"
@@ -93,13 +95,10 @@ export function MfaForm({ recoveryCodesLeft }: { recoveryCodesLeft: number }) {
             autoComplete="current-password"
             required
           />
-          <p className="hint">
-            Wird erneut abgefragt, weil hier die Anmeldedaten selbst geändert
-            werden. Eine übernommene Sitzung allein soll dafür nicht reichen.
-          </p>
+          <p className="hint">{t("mfa.passwordHint")}</p>
         </div>
         <button className="btn" type="submit" disabled={beginning}>
-          {beginning ? "Wird vorbereitet…" : "Neu einrichten"}
+          {beginning ? t("mfa.beginning") : t("mfa.begin")}
         </button>
       </div>
     </form>

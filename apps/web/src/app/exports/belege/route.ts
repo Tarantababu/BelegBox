@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { exportBelege } from "../../../lib/api";
+import { resolveUi } from "../../../lib/i18n/server";
 
 /**
  * Streams the bundle of originals to the browser.
@@ -15,7 +16,8 @@ export async function GET(request: Request): Promise<Response> {
   const to = params.get("to") ?? "";
 
   if (!from || !to) {
-    return new NextResponse("Bitte einen Zeitraum angeben.", { status: 400 });
+    const { t } = await resolveUi();
+    return new NextResponse(t("err.periodRequired"), { status: 400 });
   }
 
   const result = await exportBelege({ from, to });

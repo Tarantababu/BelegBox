@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { translator, type Dict } from "../../../lib/i18n";
 
-export function CopyBlock({ text, mono }: { text: string; mono?: boolean }) {
+export function CopyBlock({ text, mono, dict }: { text: string; mono?: boolean; dict: Dict }) {
+  const t = translator(dict);
   const [copied, setCopied] = useState(false);
 
   return (
@@ -23,7 +25,7 @@ export function CopyBlock({ text, mono }: { text: string; mono?: boolean }) {
           );
         }}
       >
-        {copied ? "Kopiert" : "Kopieren"}
+        {copied ? t("common.copied") : t("common.copy")}
       </button>
     </>
   );

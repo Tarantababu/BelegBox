@@ -23,6 +23,7 @@ export {
   replaceRecoveryCodes,
   revokeApiKey,
   setPendingTotp,
+  setUserLocale,
   revokeAllSessions,
   revokeSession,
   revokeSessionsForUser,

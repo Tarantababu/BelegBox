@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTenant } from "../../lib/api";
+import { resolveUi } from "../../lib/i18n/server";
 import { Chrome } from "../nav";
 
 export const dynamic = "force-dynamic";
@@ -21,94 +22,78 @@ function defaultPeriod(): { from: string; to: string } {
 export default async function ExportsPage() {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
+  const { t } = await resolveUi();
 
   const period = defaultPeriod();
 
   return (
     <div className="shell">
-      <Chrome tenantName={tenant.name} current="exports" />
+      <Chrome tenantName={tenant.name} current="exports" t={t} />
 
       <div className="pad">
-        <h1>DATEV-Export</h1>
-        <p className="sub">
-          Buchungsstapel im Format EXTF, wie deine Steuerberatung ihn importiert.
-        </p>
+        <h1>{t("exp.title")}</h1>
+        <p className="sub">{t("exp.sub")}</p>
       </div>
 
       <form method="get" action="/exports/download">
         <div className="pad" style={{ paddingTop: 0 }}>
           <div className="field">
-            <label htmlFor="from">Zeitraum von</label>
+            <label htmlFor="from">{t("exp.from")}</label>
             <input id="from" name="from" type="date" defaultValue={period.from} required />
           </div>
           <div className="field">
-            <label htmlFor="to">bis</label>
+            <label htmlFor="to">{t("exp.to")}</label>
             <input id="to" name="to" type="date" defaultValue={period.to} required />
           </div>
           <div className="field">
-            <label htmlFor="berater">Beraternummer</label>
+            {/* "Beraternummer" stays German in every language: it is the
+                caption of the field the Steuerberatung will name on the phone,
+                and a translated one is a number the user cannot ask for. */}
+            <label htmlFor="berater">{t("exp.berater")}</label>
             <input id="berater" name="berater" inputMode="numeric" required placeholder="1234567" />
-            <p className="hint">
-              Diese Nummern vergibt deine Steuerberatung. Ohne sie kann DATEV den Stapel
-              nicht zuordnen.
-            </p>
+            <p className="hint">{t("exp.beraterHint")}</p>
           </div>
           <div className="field">
-            <label htmlFor="mandant">Mandantennummer</label>
+            <label htmlFor="mandant">{t("exp.mandant")}</label>
             <input id="mandant" name="mandant" inputMode="numeric" required placeholder="42" />
           </div>
           <div className="field">
-            <label htmlFor="chart">Kontenrahmen</label>
+            <label htmlFor="chart">{t("exp.chart")}</label>
             <select id="chart" name="chart" defaultValue="SKR03">
               <option value="SKR03">SKR03</option>
               <option value="SKR04">SKR04</option>
             </select>
-            <p className="hint">
-              Der falsche Kontenrahmen erzeugt einen Stapel, den deine Steuerberatung Zeile
-              für Zeile korrigieren muss.
-            </p>
+            <p className="hint">{t("exp.chartHint")}</p>
           </div>
           <button className="btn solid" type="submit">
-            Stapel herunterladen
+            {t("exp.download")}
           </button>
         </div>
       </form>
 
       <div className="sec">
-        <p className="note">
-          Der Export ist in jedem bezahlten Tarif enthalten. Die Datei ist
-          Windows-1252-kodiert und festgeschrieben, wie GoBD es für Buchungen
-          vorsieht.
-        </p>
+        <p className="note">{t("exp.included")}</p>
       </div>
 
       <div className="sec">
-        <h2>Belege zum Stapel</h2>
-        <p className="sub">
-          Die Originaldateien zum selben Zeitraum, als ZIP — genau die Bytes, die
-          eingegangen sind. Ein Belegverzeichnis liegt bei, mit Prüfsumme und
-          Archivtag zu jedem Beleg.
-        </p>
+        <h2>{t("exp.belegeTitle")}</h2>
+        <p className="sub">{t("exp.belegeSub")}</p>
       </div>
 
       <form method="get" action="/exports/belege">
         <div className="pad" style={{ paddingTop: 0 }}>
           <div className="field">
-            <label htmlFor="belege-from">Zeitraum von</label>
+            <label htmlFor="belege-from">{t("exp.from")}</label>
             <input id="belege-from" name="from" type="date" defaultValue={period.from} required />
           </div>
           <div className="field">
-            <label htmlFor="belege-to">bis</label>
+            <label htmlFor="belege-to">{t("exp.to")}</label>
             <input id="belege-to" name="to" type="date" defaultValue={period.to} required />
           </div>
           <button className="btn" type="submit">
-            Belege herunterladen
+            {t("exp.belegeDownload")}
           </button>
-          <p className="hint">
-            Belege, deren gespeicherte Bytes nicht mehr zu ihrer archivierten
-            Prüfsumme passen, werden nicht beigelegt — sie stehen mit Grund im
-            Belegverzeichnis.
-          </p>
+          <p className="hint">{t("exp.belegeHint")}</p>
         </div>
       </form>
     </div>

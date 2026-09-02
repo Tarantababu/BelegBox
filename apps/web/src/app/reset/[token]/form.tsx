@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
+import { translator, type Dict } from "../../../lib/i18n";
 import { confirmResetAction, type ConfirmState } from "./actions";
 
-export function ConfirmForm({ token }: { token: string }) {
+export function ConfirmForm({ token, dict }: { token: string; dict: Dict }) {
+  const t = translator(dict);
   const [state, action, pending] = useActionState<ConfirmState, FormData>(
     confirmResetAction,
     {},
@@ -13,10 +15,10 @@ export function ConfirmForm({ token }: { token: string }) {
     <form action={action}>
       <input type="hidden" name="token" value={token} />
       <div className="pad" style={{ paddingTop: 0 }}>
-        {state.error ? <p className="err">{state.error}</p> : null}
+        {state.errorKey ? <p className="err">{t(state.errorKey)}</p> : null}
 
         <div className="field">
-          <label htmlFor="password">Neues Passwort</label>
+          <label htmlFor="password">{t("reset.newPassword")}</label>
           <input
             id="password"
             name="password"
@@ -26,11 +28,11 @@ export function ConfirmForm({ token }: { token: string }) {
             required
             autoFocus
           />
-          <p className="hint">Mindestens 12 Zeichen. Länge schützt besser als Sonderzeichen.</p>
+          <p className="hint">{t("common.passwordHint")}</p>
         </div>
 
         <div className="field">
-          <label htmlFor="repeat">Noch einmal</label>
+          <label htmlFor="repeat">{t("reset.repeat")}</label>
           <input
             id="repeat"
             name="repeat"
@@ -45,7 +47,7 @@ export function ConfirmForm({ token }: { token: string }) {
             inbox alone is not enough to take an account. */}
         {state.mfaRequired ? (
           <div className="field">
-            <label htmlFor="totpCode">Code aus deiner Authenticator-App</label>
+            <label htmlFor="totpCode">{t("common.totpLabel")}</label>
             <input
               id="totpCode"
               name="totpCode"
@@ -56,12 +58,12 @@ export function ConfirmForm({ token }: { token: string }) {
               required
               autoFocus
             />
-            <p className="hint">Sechs Ziffern, wechselt alle 30 Sekunden.</p>
+            <p className="hint">{t("common.totpHint")}</p>
           </div>
         ) : null}
 
         <button className="btn solid" type="submit" disabled={pending}>
-          {pending ? "Wird gespeichert …" : "Passwort setzen"}
+          {pending ? t("reset.saving") : t("reset.save")}
         </button>
       </div>
     </form>

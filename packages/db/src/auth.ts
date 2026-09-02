@@ -529,11 +529,38 @@ export async function revokeApiKey(tx: TenantClient, id: string): Promise<boolea
 export async function getAccountUser(
   tx: TenantClient,
   userId: string,
-): Promise<{ email: string; passwordHash: string | null } | undefined> {
-  const { rows } = await tx.query<{ email: string; password_hash: string | null }>(
-    "SELECT email, password_hash FROM users WHERE id = $1",
-    [userId],
-  );
+): Promise<{ email: string; passwordHash: string | null; locale: string } | undefined> {
+  const { rows } = await tx.query<{
+    email: string;
+    password_hash: string | null;
+    locale: string;
+  }>("SELECT email, password_hash, locale FROM users WHERE id = $1", [userId]);
   const row = rows[0];
-  return row ? { email: row.email, passwordHash: row.password_hash } : undefined;
+  return row
+    ? { email: row.email, passwordHash: row.password_hash, locale: row.locale }
+    : undefined;
+}
+
+/**
+ * The interface language, per person.
+ *
+ * Inside the tenant scope, so RLS decides which rows are reachable and a user
+ * id from another tenant simply matches nothing - the caller is told the update
+ * did not happen rather than being allowed to write across the boundary.
+ *
+ * The list of acceptable codes is not repeated here. It lives in the CHECK
+ * constraint from migration 0012, which is the one place every writer passes
+ * through - this function, the seed, and anyone at a psql prompt. A rejected
+ * code arrives as a 23514 the caller turns into a 400.
+ */
+export async function setUserLocale(
+  tx: TenantClient,
+  userId: string,
+  locale: string,
+): Promise<boolean> {
+  const { rowCount } = await tx.query("UPDATE users SET locale = $2 WHERE id = $1", [
+    userId,
+    locale,
+  ]);
+  return (rowCount ?? 0) > 0;
 }

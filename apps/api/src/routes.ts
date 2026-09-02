@@ -21,6 +21,14 @@ export interface RouteDeps {
   db: Db;
   explain: Registry;
   resolveTenant: (request: FastifyRequest) => Promise<string | undefined>;
+  /**
+   * The interface language of whoever is asking, from `users.locale`.
+   *
+   * Undefined for an API key, which authenticates a business rather than a
+   * person and so has nobody to have a language preference. The tenant's own
+   * locale is the fallback in that case.
+   */
+  resolveLanguage?: (request: FastifyRequest) => Promise<string | undefined>;
   /** Templates are unapproved until the lawyer signs off (Ek A). */
   allowUnapprovedTemplates?: boolean;
   inboxDomain?: string;
@@ -99,7 +107,20 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     }
 
     const industry = request.body?.industry?.trim() || null;
-    const locale = request.body?.locale === "tr" ? "tr" : "de";
+    // Shape only. Which two-letter codes are actually supported is the CHECK
+    // constraint from migration 0012, deliberately not restated here: a second
+    // copy of the list is a second thing to forget when a language is added,
+    // and the failure mode of forgetting *this* one would be an account
+    // created in a language the interface cannot render. An unsupported code
+    // comes back as 23514 and is answered below.
+    //
+    // The previous version coerced anything that was not "tr" to "de" without
+    // saying so, which is how a picker offering ten languages would have
+    // silently created ten German accounts.
+    const locale = request.body?.locale?.trim() || "de";
+    if (!/^[a-z]{2}$/.test(locale)) {
+      return reply.code(400).send({ error: "locale must be a two-letter language code" });
+    }
     const taxId = request.body?.taxId?.trim() || null;
 
     // A VAT identifier and a Steuernummer are different things and only one
@@ -161,6 +182,9 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
           .code(409)
           .send({ error: "that email or address is already registered" });
       }
+      if ((err as { code?: string }).code === "23514") {
+        return reply.code(400).send({ error: `language "${locale}" is not supported` });
+      }
       throw err;
     }
   });
@@ -172,10 +196,16 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
     return deps.db.withTenant(tenantId, async (tx) => {
       const tenant = await getTenant(tx);
       if (!tenant) return reply.code(404).send({ error: "not found" });
+      // `locale` is the tenant's default - what a new colleague inherits and
+      // what an API key falls back to. `language` is what THIS session should
+      // be rendered in, which is a person's setting and not the business's.
+      // The interface reads the second; the first is kept in the response
+      // because setup and the seed still speak in those terms.
       return reply.send({
         id: tenant.id,
         name: tenant.name,
         locale: tenant.locale,
+        language: (await deps.resolveLanguage?.(request)) ?? tenant.locale,
         industry: tenant.industry,
         inboxAddress: (await getInboxAddress(tx)) ?? null,
       });
@@ -245,11 +275,21 @@ export function registerRoutes(app: FastifyInstance, deps: RouteDeps): void {
         // leaks the existence of another tenant's document.
         if (!document) return reply.code(404).send({ error: "not found" });
 
+        // Which language the explanation is written in, which is not the same
+        // question as which language the interface is in. Reviewed wording
+        // exists in German and Turkish only (Ek A), so every other interface
+        // language reads its explanations in German - the account screen says
+        // so rather than leaving the user to notice.
+        //
+        // The reader's own setting comes first, the tenant default second. An
+        // explicit ?locale= still wins, because a customer's own interface
+        // asking for one language should get that language.
         const tenant = await getTenant(tx);
+        const preferred = (await deps.resolveLanguage?.(request)) ?? tenant?.locale;
         const locale: Locale =
           request.query.locale === "tr" || request.query.locale === "de"
             ? request.query.locale
-            : ((tenant?.locale === "tr" ? "tr" : "de") as Locale);
+            : ((preferred === "tr" ? "tr" : "de") as Locale);
 
         const findings = await getFindings(tx, id);
 

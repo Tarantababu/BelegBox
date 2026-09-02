@@ -301,3 +301,34 @@ Two of these are hard gates, and neither can be cleared by writing more code:
 
 And the operational ones: `versions.properties` must be pinned (R-2), and the
 S3 bucket must have object locking on before the first document is archived.
+
+## Interface languages
+
+Ten, chosen by what people in Germany speak at home — the list and the
+reasoning are in `apps/web/src/lib/i18n/languages.ts`, and the same ten are a
+CHECK constraint in migration `0012_languages.sql`.
+
+The choice is per person (`users.locale`), not per business. The tenant's own
+`locale` stays as the default a new colleague inherits and as the fallback for
+an API key, which authenticates a business and so has nobody to have a
+preference.
+
+Two things to know before adding a language:
+
+- **It needs a dictionary and a migration.** Editing only the registry gives a
+  picker entry the database rejects with a 400; editing only the migration gives
+  one that renders German. Neither is silent, which is why both exist.
+- **It does not get explanations.** Finding explanations exist in German and
+  Turkish only, because those are the two a lawyer has been asked to review
+  (Ek A). § 2-5 StBerG make an explanation of a tax rule something you may not
+  improvise, and a machine translation would improvise it. Every other interface
+  language shows its explanations in German, and the account screen says so.
+
+`INBOX_DOMAIN`, `Beraternummer`, `Verfahrensdokumentation`, `DATEV`, `GoBD`,
+`XRechnung` and the rest of the German terms of art stay German in all ten. They
+are either proper nouns or the literal caption of a field the user has to find
+in somebody else's software.
+
+Migration 0012 has to run before the new API is serving. It is additive and its
+CHECK passes on existing rows, so the order is not delicate — but a deploy
+without it means `PUT /v1/account/language` accepts any two-letter code.

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { API_URL, SESSION_COOKIE, currentSession } from "../../../lib/api";
+import { resolveUi } from "../../../lib/i18n/server";
 
 /**
  * Forwards an uploaded file to the API.
@@ -11,6 +12,11 @@ import { API_URL, SESSION_COOKIE, currentSession } from "../../../lib/api";
 export async function POST(request: Request): Promise<Response> {
   const token = await currentSession();
   if (!token) return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+
+  // The message travels back in the query string and the inbox renders it
+  // verbatim, so it has to be written here in the reader's language rather
+  // than in German.
+  const { t } = await resolveUi();
 
   const form = await request.formData();
   const part = form.get("file");
@@ -34,12 +40,12 @@ export async function POST(request: Request): Promise<Response> {
     filename = "upload";
     contentType = "application/octet-stream";
   } else {
-    back.searchParams.set("fehler", "Bitte eine Datei auswählen.");
+    back.searchParams.set("fehler", t("err.upload.noFile"));
     return NextResponse.redirect(back, { status: 303 });
   }
 
   if (bytes.byteLength === 0) {
-    back.searchParams.set("fehler", "Die Datei ist leer.");
+    back.searchParams.set("fehler", t("err.upload.empty"));
     return NextResponse.redirect(back, { status: 303 });
   }
 
@@ -58,7 +64,12 @@ export async function POST(request: Request): Promise<Response> {
 
   if (!response.ok) {
     const detail = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
-    back.searchParams.set("fehler", detail.message ?? detail.error ?? "Upload fehlgeschlagen.");
+    // The API's own words when it has any - they say what was actually wrong
+    // with the file, which is worth more than a translated generic.
+    back.searchParams.set(
+      "fehler",
+      detail.message ?? detail.error ?? t("err.upload.failed"),
+    );
     return NextResponse.redirect(back, { status: 303 });
   }
 

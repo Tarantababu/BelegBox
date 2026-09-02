@@ -1,12 +1,15 @@
 import Link from "next/link";
+import type { Translate } from "../lib/i18n";
 import { logoutAction } from "./logout";
 
 export function Chrome({
   tenantName,
   current,
+  t,
 }: {
   tenantName: string;
   current: "inbox" | "archive" | "exports" | "doku" | "archiv" | "einstellungen";
+  t: Translate;
 }) {
   return (
     <header className="top">
@@ -18,28 +21,28 @@ export function Chrome({
         <span className="who">{tenantName}</span>
         <form action={logoutAction}>
           <button className="btn" type="submit" style={{ padding: "5px 10px", fontSize: 13 }}>
-            Abmelden
+            {t("nav.signOut")}
           </button>
         </form>
       </div>
       <nav className="tabs">
         <Link href="/inbox" aria-current={current === "inbox" ? "page" : undefined}>
-          Eingang
+          {t("nav.inbox")}
         </Link>
         <Link href="/inbox?status=clean" aria-current={current === "archive" ? "page" : undefined}>
-          Geprüft
+          {t("nav.checked")}
         </Link>
         <Link href="/archiv" aria-current={current === "archiv" ? "page" : undefined}>
-          Archiv
+          {t("nav.archive")}
         </Link>
         <Link href="/exports" aria-current={current === "exports" ? "page" : undefined}>
-          DATEV-Export
+          {t("nav.datev")}
         </Link>
         <Link href="/verfahrensdokumentation" aria-current={current === "doku" ? "page" : undefined}>
-          Verfahrensdokumentation
+          {t("nav.doku")}
         </Link>
         <Link href="/einstellungen" aria-current={current === "einstellungen" ? "page" : undefined}>
-          Konto
+          {t("nav.account")}
         </Link>
       </nav>
     </header>

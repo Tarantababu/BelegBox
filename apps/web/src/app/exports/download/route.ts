@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { exportDatev } from "../../../lib/api";
+import { resolveUi } from "../../../lib/i18n/server";
 
 /**
  * Streams the Buchungsstapel to the browser as a download.
@@ -17,9 +18,8 @@ export async function GET(request: Request): Promise<Response> {
   const mandantNumber = Number(params.get("mandant"));
 
   if (!from || !to || !Number.isInteger(beraterNumber) || !Number.isInteger(mandantNumber)) {
-    return new NextResponse("Zeitraum, Berater- und Mandantennummer sind erforderlich.", {
-      status: 400,
-    });
+    const { t } = await resolveUi();
+    return new NextResponse(t("err.datevRequired"), { status: 400 });
   }
 
   const result = await exportDatev({

@@ -1,6 +1,10 @@
+import { resolvePublicUi } from "../../lib/i18n/server";
+import { LanguageSwitch } from "../language-switch";
 import { SetupForm } from "./form";
 
-export default function SetupPage() {
+export default async function SetupPage() {
+  const { t, dict, lang } = await resolvePublicUi();
+
   return (
     <div className="shell">
       <header className="top">
@@ -9,26 +13,19 @@ export default function SetupPage() {
             <i />
             Belegbox
           </span>
+          <LanguageSwitch current={lang} next="/setup" />
         </div>
       </header>
 
       <div className="pad">
-        <h1>Einrichtung</h1>
-        <p className="sub">
-          Drei Angaben, keine Kreditkarte. Am Ende steht deine Adresse für
-          E-Rechnungen.
-        </p>
+        <h1>{t("setup.title")}</h1>
+        <p className="sub">{t("setup.sub")}</p>
       </div>
 
-      <SetupForm />
+      <SetupForm dict={dict} lang={lang} />
 
       <div className="sec">
-        <div className="warnbox">
-          Seit dem 1. Januar 2025 dürfen Lieferanten E-Rechnungen senden, ohne
-          vorher zu fragen. Die Pflicht, sie zu empfangen und lesbar zu
-          archivieren, gilt damit schon heute — unabhängig davon, ab wann du
-          selbst E-Rechnungen ausstellen musst.
-        </div>
+        <div className="warnbox">{t("setup.warn")}</div>
       </div>
     </div>
   );

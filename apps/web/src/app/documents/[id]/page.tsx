@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getDocument, getTenant, type Finding } from "../../../lib/api";
+import { FORMAT_LOCALE, explanationLanguage, type Key, type Translate } from "../../../lib/i18n";
+import { resolveUi } from "../../../lib/i18n/server";
 import { STATUS_META, VERDICT_META } from "../../../lib/status";
 import { Chrome } from "../../nav";
 import { PaymentPanel } from "./payment";
@@ -14,20 +16,21 @@ const SEVERITY_CLASS: Record<string, string> = {
   info: "",
 };
 
-const LAYER_LABEL: Record<string, string> = {
-  l1_schema: "L1 · Schema (XSD)",
-  l2_schematron: "L2 · Schematron (KoSIT)",
-  l3_domain: "L3 · Fachprüfung (Belegbox)",
-  l4_tenant: "L4 · Eigenes Regelwerk",
+const LAYER_KEY: Record<string, Key> = {
+  l1_schema: "doc.layer.l1",
+  l2_schematron: "doc.layer.l2",
+  l3_domain: "doc.layer.l3",
+  l4_tenant: "doc.layer.l4",
 };
 
-function FindingCard({ finding, locale }: { finding: Finding; locale: string }) {
+function FindingCard({ finding, t }: { finding: Finding; t: Translate }) {
   const explanation = finding.explanation;
+  const layer = LAYER_KEY[finding.layer];
 
   return (
     <div className="sec">
       <p className="lbl">
-        {LAYER_LABEL[finding.layer] ?? finding.layer} · {finding.code}
+        {layer ? t(layer) : finding.layer} · {finding.code}
         {finding.btRef ? ` · ${finding.btRef}` : ""}
       </p>
 
@@ -38,17 +41,20 @@ function FindingCard({ finding, locale }: { finding: Finding; locale: string }) 
 
       {explanation ? (
         <div className="ai" style={{ marginTop: 12 }}>
-          <p className="lbl">Was das bedeutet</p>
+          <p className="lbl">{t("doc.whatItMeans")}</p>
           <p>{explanation.observation}</p>
           {explanation.legalBasis ? <p className="basis">{explanation.legalBasis}</p> : null}
           {explanation.nextStep ? <p className="step">{explanation.nextStep}</p> : null}
 
           {/* The German text travels with every finding so it can be forwarded
               to a supplier or a Steuerberater without the user translating
-              their own problem (PRD § 5.4). */}
-          {locale !== "de" ? (
+              their own problem (PRD § 5.4). Keyed off the language the
+              explanation actually came back in - which, for the eight
+              interface languages with no reviewed wording, is already German,
+              and repeating it under a "in German" heading would be absurd. */}
+          {explanation.locale !== "de" ? (
             <details>
-              <summary>Auf Deutsch — zum Weiterleiten an Lieferant oder Steuerberatung</summary>
+              <summary>{t("doc.germanSummary")}</summary>
               <p>{explanation.german.observation}</p>
               <p className="basis">{explanation.german.legalBasis}</p>
               <p className="disclaimer">{explanation.german.disclaimer}</p>
@@ -59,17 +65,8 @@ function FindingCard({ finding, locale }: { finding: Finding; locale: string }) 
               switched off, which is the point (StBerG § 2-5). */}
           <p className="disclaimer">{explanation.disclaimer}</p>
 
-          {explanation.fallback ? (
-            <p className="disclaimer">
-              Für diese Regel gibt es noch keinen geprüften Erklärungstext. Oben
-              steht die Rohausgabe des Validators.
-            </p>
-          ) : null}
-          {!explanation.approved ? (
-            <p className="disclaimer">
-              Entwurfstext — die juristische Prüfung dieser Erklärung steht noch aus.
-            </p>
-          ) : null}
+          {explanation.fallback ? <p className="disclaimer">{t("doc.noTemplate")}</p> : null}
+          {!explanation.approved ? <p className="disclaimer">{t("doc.draft")}</p> : null}
         </div>
       ) : null}
 
@@ -96,6 +93,7 @@ export default async function DocumentDetail({
 }) {
   const tenant = await getTenant();
   if (!tenant) redirect("/login");
+  const { t, lang } = await resolveUi();
 
   const { id } = await params;
   const doc = await getDocument(id);
@@ -113,17 +111,17 @@ export default async function DocumentDetail({
 
   return (
     <div className="shell">
-      <Chrome tenantName={tenant.name} current="inbox" />
+      <Chrome tenantName={tenant.name} current="inbox" t={t} />
 
       <Link className="back" href="/inbox">
-        ← Eingang
+        ← {t("nav.inbox")}
       </Link>
 
       <div className="pad" style={{ paddingTop: 0 }}>
-        <h2>{tenant.locale === "tr" ? status.tr : status.de}</h2>
+        <h2>{t(status.key)}</h2>
         <p className="sub">
-          {doc.format ? doc.format.replace(/_/g, " ") : "unbekanntes Format"}
-          {doc.archivedAt ? " · archiviert" : ""}
+          {doc.format ? doc.format.replace(/_/g, " ") : t("doc.unknownFormat")}
+          {doc.archivedAt ? ` · ${t("doc.archived")}` : ""}
         </p>
       </div>
 
@@ -133,55 +131,53 @@ export default async function DocumentDetail({
       <div className="sec">
         <div className="verdicts">
           <div className={`vd ${form.cls}`}>
-            <p className="vt">Formprüfung (KoSIT)</p>
-            <p className="vv">{tenant.locale === "tr" ? form.tr : form.de}</p>
+            <p className="vt">{t("doc.formCheck")}</p>
+            <p className="vv">{t(form.key)}</p>
           </div>
           <div className={`vd ${content.cls}`}>
-            <p className="vt">Inhaltsprüfung (Belegbox)</p>
-            <p className="vv">{tenant.locale === "tr" ? content.tr : content.de}</p>
+            <p className="vt">{t("doc.contentCheck")}</p>
+            <p className="vv">{t(content.key)}</p>
           </div>
         </div>
         {doc.verdict.form === "unknown" ? (
           <p className="note" style={{ marginTop: 10 }}>
-            Die Formprüfung konnte nicht ausgeführt werden — der KoSIT-Validator
-            war nicht erreichbar. Belegbox rät kein Ergebnis; das Urteil bleibt
-            offen, bis die Prüfung durchläuft.
+            {t("doc.unknownNote")}
           </p>
         ) : null}
       </div>
 
-      <PaymentPanel id={doc.id} locale={tenant.locale} />
+      <PaymentPanel id={doc.id} t={t} explainLang={explanationLanguage(lang)} />
 
       {[...errors, ...warnings, ...rest].map((finding) => (
-        <FindingCard key={finding.id} finding={finding} locale={tenant.locale} />
+        <FindingCard key={finding.id} finding={finding} t={t} />
       ))}
 
       {doc.findings.length === 0 ? (
         <div className="sec">
-          <p className="note">Keine Beanstandungen.</p>
+          <p className="note">{t("doc.noFindings")}</p>
         </div>
       ) : null}
 
       <div className="sec">
-        <p className="lbl">Nachweis</p>
+        <p className="lbl">{t("doc.evidence")}</p>
         <table className="led">
           <tbody>
             <tr>
-              <td>Profil</td>
+              <td>{t("doc.profile")}</td>
               <td>{doc.profileUrn ?? "—"}</td>
             </tr>
             <tr>
-              <td>Eingegangen</td>
-              <td>{new Date(doc.receivedAt).toLocaleString("de-DE")}</td>
+              <td>{t("doc.received")}</td>
+              <td>{new Date(doc.receivedAt).toLocaleString(FORMAT_LOCALE)}</td>
             </tr>
             {doc.findings[0] ? (
               <>
                 <tr>
-                  <td>Validator-Konfiguration</td>
+                  <td>{t("doc.validatorConfig")}</td>
                   <td>{doc.findings[0].versions.validatorConfig}</td>
                 </tr>
                 <tr>
-                  <td>Prüf-Engine</td>
+                  <td>{t("doc.engine")}</td>
                   <td>{doc.findings[0].versions.engine}</td>
                 </tr>
               </>
@@ -189,8 +185,7 @@ export default async function DocumentDetail({
           </tbody>
         </table>
         <p className="note" style={{ marginTop: 10 }}>
-          Diese Versionen gehören zum Urteil, damit es sich später
-          nachvollziehen lässt.
+          {t("doc.versionsNote")}
         </p>
       </div>
     </div>

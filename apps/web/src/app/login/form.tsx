@@ -1,18 +1,28 @@
 "use client";
 
 import { useActionState } from "react";
+import { translator, type Dict } from "../../lib/i18n";
 import { loginAction, type LoginState } from "./actions";
 
-export function LoginForm() {
+/**
+ * The dictionary arrives as a prop rather than being looked up here.
+ *
+ * A client component importing the registry would pull all ten languages into
+ * the browser bundle to render one. The server already resolved which one this
+ * reader gets; passing that single object is a few kilobytes of RSC payload
+ * instead.
+ */
+export function LoginForm({ dict }: { dict: Dict }) {
+  const t = translator(dict);
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, {});
 
   return (
     <form action={action}>
       <div className="pad" style={{ paddingTop: 0 }}>
-        {state.error ? <p className="err">{state.error}</p> : null}
+        {state.errorKey ? <p className="err">{t(state.errorKey)}</p> : null}
 
         <div className="field">
-          <label htmlFor="email">E-Mail-Adresse</label>
+          <label htmlFor="email">{t("common.email")}</label>
           <input
             id="email"
             name="email"
@@ -24,7 +34,7 @@ export function LoginForm() {
         </div>
 
         <div className="field">
-          <label htmlFor="password">Passwort</label>
+          <label htmlFor="password">{t("common.password")}</label>
           <input
             id="password"
             name="password"
@@ -38,7 +48,7 @@ export function LoginForm() {
             whether an address exists. */}
         {state.mfaRequired ? (
           <div className="field">
-            <label htmlFor="totpCode">Code aus deiner Authenticator-App</label>
+            <label htmlFor="totpCode">{t("common.totpLabel")}</label>
             <input
               id="totpCode"
               name="totpCode"
@@ -49,12 +59,12 @@ export function LoginForm() {
               required
               autoFocus
             />
-            <p className="hint">Sechs Ziffern, wechselt alle 30 Sekunden.</p>
+            <p className="hint">{t("common.totpHint")}</p>
           </div>
         ) : null}
 
         <button className="btn solid" type="submit" disabled={pending}>
-          {pending ? "Anmelden …" : "Anmelden"}
+          {pending ? t("login.submitting") : t("login.submit")}
         </button>
       </div>
     </form>

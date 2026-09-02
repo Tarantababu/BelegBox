@@ -21,6 +21,7 @@ import {
   revokeApiKey,
   revokeSessionsForUser,
   setPendingTotp,
+  setUserLocale,
   type Db,
 } from "@belegbox/db";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -200,6 +201,65 @@ export function registerAccountRoutes(app: FastifyInstance, deps: AccountRouteDe
 
     // Shown once. There is no path that displays them again.
     return reply.send({ recoveryCodes: result.codes, sessionsRevoked: true });
+  });
+
+  /**
+   * The interface language, read back.
+   *
+   * A session already carries it, so this exists for a client that wants to
+   * know without holding one - and for the account screen after a change, so
+   * it renders what the database now says rather than what it just sent.
+   */
+  app.get("/v1/account/language", async (request, reply) => {
+    const principal = await requirePerson(deps, request, reply);
+    if (!principal) return reply;
+
+    return deps.db.withTenant(principal.tenantId, async (tx) => {
+      const user = await getAccountUser(tx, principal.userId as string);
+      if (!user) return reply.code(404).send({ error: "not found" });
+      return reply.send({ language: user.locale });
+    });
+  });
+
+  /**
+   * Changes it.
+   *
+   * No password. This is the one setting on the account screen that is not a
+   * credential: it cannot lock anyone out, cannot be used to take an account,
+   * and reveals nothing. Asking for a password here would train people to type
+   * it for trivia, which is the habit that makes the prompt on the MFA and key
+   * routes above worth anything.
+   *
+   * `requirePerson` still applies. An API key authenticates a business and has
+   * no language of its own; letting one write `users.locale` would mean a till
+   * system silently changing the interface of whoever logs in next.
+   *
+   * The set of valid codes is enforced by the CHECK constraint from migration
+   * 0012 rather than by a list here - see the note in that migration. A code
+   * outside it arrives as 23514 and is answered as a 400, not a 500.
+   */
+  app.put<{ Body: { language?: string } }>("/v1/account/language", async (request, reply) => {
+    const principal = await requirePerson(deps, request, reply);
+    if (!principal) return reply;
+
+    const language = request.body?.language?.trim() ?? "";
+    if (!/^[a-z]{2}$/.test(language)) {
+      return reply.code(400).send({ error: "language must be a two-letter language code" });
+    }
+
+    try {
+      const changed = await deps.db.withTenant(principal.tenantId, (tx) =>
+        setUserLocale(tx, principal.userId as string, language),
+      );
+      if (!changed) return reply.code(404).send({ error: "not found" });
+    } catch (err) {
+      if ((err as { code?: string }).code === "23514") {
+        return reply.code(400).send({ error: `language "${language}" is not supported` });
+      }
+      throw err;
+    }
+
+    return reply.send({ language });
   });
 
   app.get("/v1/api-keys", async (request, reply) => {

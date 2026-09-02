@@ -1,14 +1,26 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { resolveUi } from "../lib/i18n/server";
 import "./globals.css";
 
-export const metadata = {
-  title: "Belegbox",
-  description: "E-Rechnungen empfangen, prüfen und archivieren",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await resolveUi();
+  return { title: "Belegbox", description: t("meta.description") };
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/**
+ * `lang` and `dir` come from the reader, not from a constant.
+ *
+ * `lang` is what a screen reader picks a voice from and what the browser
+ * hyphenates by; `dir` is the one thing Arabic needs that no amount of
+ * translated strings supplies. Setting them here rather than per page means a
+ * screen that forgets cannot exist.
+ */
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const { lang, dir } = await resolveUi();
+
   return (
-    <html lang="de">
+    <html lang={lang} dir={dir}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
